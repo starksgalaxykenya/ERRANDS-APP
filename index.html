@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERRANDS - Task & Delivery Service</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --lime-green: #32cd32;
+            --light-blue: #00bfff;
+            --dark-green: #228b22;
+            --dark-blue: #1e90ff;
+            --light-gray: #f5f5f5;
+            --medium-gray: #e0e0e0;
+            --dark-gray: #333;
+            --white: #ffffff;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            color: var(--dark-gray);
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(180deg, var(--lime-green) 0%, var(--dark-green) 100%);
+            color: white;
+            padding: 25px 20px;
+            display: flex;
+            flex-direction: column;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-family: 'Poppins', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .logo i {
+            color: var(--light-blue);
+        }
+
+        .nav-links {
+            list-style: none;
+            flex-grow: 1;
+        }
+
+        .nav-item {
+            margin-bottom: 12px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 14px 20px;
+            color: white;
+            text-decoration: none;
+            border-radius: var(--radius);
+            transition: var(--transition);
+            font-weight: 500;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.15);
+            transform: translateX(5px);
+        }
+
+        .nav-link i {
+            font-size: 20px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius);
+            margin-top: auto;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid white;
+        }
+
+        .user-info h4 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .user-info p {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: var(--light-gray);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--medium-gray);
+        }
+
+        .page-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--dark-gray);
+        }
+
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background-color: var(--white);
+            border-radius: var(--radius);
+            padding: 25px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            border-left: 5px solid var(--lime-green);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card.blue {
+            border-left-color: var(--light-blue);
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--dark-gray);
+            margin-bottom: 5px;
+        }
+
+        .stat-trend {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+            color: #28a745;
+        }
+
+        .stat-trend.negative {
+            color: #dc3545;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--lime-green) 0%, var(--dark-green) 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(50, 205, 50, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: var(--light-blue);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--dark-blue);
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 2px solid var(--lime-green);
+            color: var(--lime-green);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--lime-green);
+            color: white;
+        }
+
+        /* Form Styles */
+        .form-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 30px;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark-gray);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid var(--medium-gray);
+            border-radius: var(--radius);
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            transition: var(--transition);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--lime-green);
+            box-shadow: 0 0 0 3px rgba(50, 205, 50, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .checkbox-group, .radio-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .checkbox-label, .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        /* Login Page Styles */
+        .login-container {
+            display: flex;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--lime-green) 0%, var(--light-blue) 100%);
+        }
+
+        .login-left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            color: white;
+        }
+
+        .login-right {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            background-color: rgba(255, 255, 255, 0.95);
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            background-color: var(--white);
+            border-radius: var(--radius);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            padding: 40px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            font-family: 'Poppins', sans-serif;
+            color: var(--dark-gray);
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: #666;
+        }
+
+        .google-btn {
+            width: 100%;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: var(--radius);
+            padding: 14px;
+            font-weight: 500;
+            color: #444;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .google-btn:hover {
+            background-color: #f8f8f8;
+            box-shadow: var(--shadow);
+        }
+
+        /* Errand List Styles */
+        .errands-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .errand-card {
+            background-color: var(--white);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .errand-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .errand-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--medium-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .errand-type {
+            background-color: var(--lime-green);
+            color: white;
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .errand-budget {
+            font-weight: 700;
+            font-size: 20px;
+            color: var(--dark-green);
+        }
+
+        .errand-body {
+            padding: 20px;
+        }
+
+        .errand-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--dark-gray);
+        }
+
+        .errand-desc {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .errand-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .errand-detail {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .errand-detail i {
+            color: var(--lime-green);
+        }
+
+        .errand-footer {
+            padding: 15px 20px;
+            background-color: #f9f9f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .errand-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .status-active {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status-completed {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: var(--radius);
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--medium-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            transition: var(--transition);
+        }
+
+        .close-modal:hover {
+            color: var(--dark-gray);
+        }
+
+        /* Chat Styles */
+        .chat-container {
+            display: flex;
+            height: 600px;
+            background-color: white;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .chat-sidebar {
+            width: 300px;
+            border-right: 1px solid var(--medium-gray);
+            overflow-y: auto;
+        }
+
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--medium-gray);
+            background-color: #f9f9f9;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            max-width: 70%;
+        }
+
+        .message.sent {
+            margin-left: auto;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 18px;
+            background-color: #f0f0f0;
+            display: inline-block;
+        }
+
+        .message.sent .message-content {
+            background-color: var(--lime-green);
+            color: white;
+        }
+
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid var(--medium-gray);
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 992px) {
+            .app-container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+                padding: 15px;
+            }
+            
+            .nav-links {
+                display: flex;
+                overflow-x: auto;
+                margin-bottom: 15px;
+            }
+            
+            .nav-item {
+                margin-bottom: 0;
+                margin-right: 10px;
+            }
+            
+            .user-profile {
+                display: none;
+            }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .errands-list {
+                grid-template-columns: 1fr;
+            }
+            
+            .login-container {
+                flex-direction: column;
+            }
+            
+            .chat-container {
+                flex-direction: column;
+                height: 500px;
+            }
+            
+            .chat-sidebar {
+                width: 100%;
+                height: 200px;
+            }
+        }
+
+        /* Animation for page transitions */
+        .page {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background-color: var(--dark-gray);
+            color: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: var(--transition);
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            background-color: var(--lime-green);
+        }
+
+        .toast.error {
+            background-color: #dc3545;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: var(--lime-green);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-container">
+        <div class="login-left">
+            <div style="text-align: center; max-width: 500px;">
+                <h1 style="font-size: 48px; margin-bottom: 20px; font-family: 'Poppins', sans-serif;">ERRANDS</h1>
+                <p style="font-size: 20px; line-height: 1.6; opacity: 0.9;">Connect with reliable runners to handle your tasks. From deliveries to repairs, we've got you covered.</p>
+                <div style="margin-top: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div style="text-align: center;">
+                        <i class="fas fa-bolt" style="font-size: 40px; margin-bottom: 15px;"></i>
+                        <h3 style="margin-bottom: 10px;">Fast Service</h3>
+                        <p>Get your errands completed quickly</p>
+                    </div>
+                    <div style="text-align: center;">
+                        <i class="fas fa-shield-alt" style="font-size: 40px; margin-bottom: 15px;"></i>
+                        <h3 style="margin-bottom: 10px;">Secure Payments</h3>
+                        <p>Escrow protection for all transactions</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="login-right">
+            <div class="login-card">
+                <div class="login-header">
+                    <h1>Welcome Back</h1>
+                    <p>Sign in to your ERRANDS account</p>
+                </div>
+                <button id="googleLoginBtn" class="google-btn">
+                    <i class="fab fa-google"></i> Sign in with Google
+                </button>
+                <div style="text-align: center; margin: 20px 0; color: #666;">or</div>
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="email" class="form-control" placeholder="Enter your email">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="password" class="form-control" placeholder="Enter your password">
+                </div>
+                <button id="emailLoginBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 15px;">Sign In</button>
+                <div style="text-align: center;">
+                    <a href="#" id="signupLink" style="color: var(--lime-green); text-decoration: none; font-weight: 500;">Don't have an account? Sign up</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="appContainer" class="app-container" style="display: none;">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <a href="#" class="logo">
+                    <i class="fas fa-running"></i>
+                    ERRANDS
+                </a>
+            </div>
+            <ul class="nav-links">
+                <li class="nav-item">
+                    <a href="#" class="nav-link active" data-page="dashboard">
+                        <i class="fas fa-home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="postErrand">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Post Errand</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="myErrands">
+                        <i class="fas fa-tasks"></i>
+                        <span>My Errands</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="messages">
+                        <i class="fas fa-comments"></i>
+                        <span>Messages</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="disputes">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Disputes</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="profile">
+                        <i class="fas fa-user-circle"></i>
+                        <span>Profile</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-page="wallet">
+                        <i class="fas fa-wallet"></i>
+                        <span>Wallet</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="user-profile">
+                <img id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=32cd32&color=fff" alt="User" class="user-avatar">
+                <div class="user-info">
+                    <h4 id="userName">Loading...</h4>
+                    <p id="userEmail">...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard Page -->
+            <div id="dashboardPage" class="page active">
+                <div class="header">
+                    <h1 class="page-title">Dashboard</h1>
+                    <div>
+                        <button id="refreshBtn" class="btn btn-outline">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <h3>Active Errands</h3>
+                        <div class="stat-value" id="activeErrandsCount">0</div>
+                        <div class="stat-trend">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>2 new today</span>
+                        </div>
+                    </div>
+                    <div class="stat-card blue">
+                        <h3>Total Spent</h3>
+                        <div class="stat-value" id="totalSpent">$0.00</div>
+                        <div class="stat-trend">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>15% this month</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Client Rating</h3>
+                        <div class="stat-value" id="clientRating">5.0</div>
+                        <div class="stat-trend">
+                            <i class="fas fa-star"></i>
+                            <span>Based on 0 reviews</span>
+                        </div>
+                    </div>
+                    <div class="stat-card blue">
+                        <h3>Wallet Balance</h3>
+                        <div class="stat-value" id="walletBalance">$0.00</div>
+                        <div class="stat-trend negative">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <span>Add funds to post errands</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-top: 30px;">
+                    <div>
+                        <h2 style="margin-bottom: 20px; font-family: 'Poppins', sans-serif;">Recent Errands</h2>
+                        <div id="recentErrands" class="errands-list">
+                            <!-- Recent errands will be loaded here -->
+                        </div>
+                    </div>
+                    <div>
+                        <h2 style="margin-bottom: 20px; font-family: 'Poppins', sans-serif;">Quick Actions</h2>
+                        <div style="background-color: white; border-radius: var(--radius); padding: 25px; box-shadow: var(--shadow);">
+                            <button id="quickPostBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 15px;">
+                                <i class="fas fa-plus"></i> Post New Errand
+                            </button>
+                            <button id="addFundsBtn" class="btn btn-secondary" style="width: 100%; margin-bottom: 15px;">
+                                <i class="fas fa-money-bill-wave"></i> Add Funds to Wallet
+                            </button>
+                            <button id="callSupportBtn" class="btn btn-outline" style="width: 100%;">
+                                <i class="fas fa-phone"></i> Call Support
+                            </button>
+                        </div>
+                        
+                        <h2 style="margin-bottom: 20px; margin-top: 30px; font-family: 'Poppins', sans-serif;">Available Runners</h2>
+                        <div id="availableRunners" style="background-color: white; border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow);">
+                            <!-- Available runners will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Post Errand Page -->
+            <div id="postErrandPage" class="page">
+                <div class="header">
+                    <h1 class="page-title">Post New Errand</h1>
+                    <button class="btn btn-outline" onclick="showPage('dashboard')">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                </div>
+                
+                <div class="form-container">
+                    <form id="errandForm">
+                        <div class="form-group">
+                            <label class="form-label">1. Type of Errand</label>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="radio" name="errandType" value="Mama Fua" checked>
+                                    <span>Mama Fua (Laundry)</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="radio" name="errandType" value="Delivery">
+                                    <span>Delivery</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="radio" name="errandType" value="Shopping">
+                                    <span>Shopping</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="radio" name="errandType" value="Chauffeur">
+                                    <span>Chauffeur</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="radio" name="errandType" value="Handy Work">
+                                    <span>Handy Work</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="radio" name="errandType" value="Repair Work">
+                                    <span>Repair Work</span>
+                                </label>
+                            </div>
+                            <input type="text" id="customErrandType" class="form-control" style="margin-top: 10px;" placeholder="Or enter custom errand type">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">2. Description of the Errand</label>
+                            <textarea id="errandDescription" class="form-control" rows="4" placeholder="Describe your errand in detail..."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">3. Is Travel Required?</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="travelRequired" value="yes" id="travelYes">
+                                    <span>Yes</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="travelRequired" value="no" id="travelNo" checked>
+                                    <span>No</span>
+                                </label>
+                            </div>
+                            <div id="travelDetails" style="display: none; margin-top: 15px;">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">From (Address)</label>
+                                        <input type="text" id="travelFrom" class="form-control" placeholder="Starting point">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">To (Address)</label>
+                                        <input type="text" id="travelTo" class="form-control" placeholder="Destination">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">4. Town</label>
+                                <input type="text" id="errandTown" class="form-control" placeholder="Enter town">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Area</label>
+                                <input type="text" id="errandArea" class="form-control" placeholder="Enter area/neighborhood">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">5. Things Runner Might Need (Optional)</label>
+                            <input type="text" id="runnerNeeds" class="form-control" placeholder="e.g., Car, Tools, Shopping bags">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">6. Does the Runner Need to Meet You?</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="meetRequired" value="yes">
+                                    <span>Yes</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="meetRequired" value="no" checked>
+                                    <span>No</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">7. Budget (Maximum you're willing to pay)</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 24px;">$</span>
+                                <input type="number" id="errandBudget" class="form-control" min="5" step="0.01" placeholder="Enter amount" style="flex: 1;">
+                            </div>
+                            <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                                Note: A 20% service fee ($<span id="serviceFee">0.00</span>) will be deducted. Runner receives $<span id="runnerReceives">0.00</span>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">8. Set Deadline (Optional)</label>
+                            <input type="datetime-local" id="errandDeadline" class="form-control">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="useCurrentLocation">
+                                Use my current location for this errand
+                            </label>
+                        </div>
+                        
+                        <div style="text-align: center; margin-top: 30px;">
+                            <button type="button" id="submitErrandBtn" class="btn btn-primary" style="padding: 15px 40px; font-size: 18px;">
+                                <i class="fas fa-paper-plane"></i> Post Errand
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- My Errands Page -->
+            <div id="myErrandsPage" class="page">
+                <div class="header">
+                    <h1 class="page-title">My Errands</h1>
+                    <button class="btn btn-primary" onclick="showPage('postErrand')">
+                        <i class="fas fa-plus"></i> New Errand
+                    </button>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <div class="btn-group" style="display: flex; gap: 10px;">
+                        <button class="btn btn-outline active" data-filter="all">All Errands</button>
+                        <button class="btn btn-outline" data-filter="pending">Pending</button>
+                        <button class="btn btn-outline" data-filter="active">Active</button>
+                        <button class="btn btn-outline" data-filter="completed">Completed</button>
+                        <button class="btn btn-outline" data-filter="cancelled">Cancelled</button>
+                    </div>
+                </div>
+                
+                <div id="myErrandsList" class="errands-list">
+                    <!-- User's errands will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Messages Page -->
+            <div id="messagesPage" class="page">
+                <div class="header">
+                    <h1 class="page-title">Messages</h1>
+                    <button class="btn btn-primary" id="newMessageBtn">
+                        <i class="fas fa-plus"></i> New Message
+                    </button>
+                </div>
+                
+                <div class="chat-container">
+                    <div class="chat-sidebar">
+                        <div style="padding: 20px; border-bottom: 1px solid var(--medium-gray);">
+                            <input type="text" class="form-control" placeholder="Search conversations...">
+                        </div>
+                        <div id="conversationsList">
+                            <!-- Conversations will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="chat-main">
+                        <div class="chat-header">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <img src="https://ui-avatars.com/api/?name=Runner&background=00bfff&color=fff" alt="Runner" style="width: 40px; height: 40px; border-radius: 50%;">
+                                <div>
+                                    <h3 style="font-size: 18px; margin-bottom: 5px;">Select a conversation</h3>
+                                    <p style="font-size: 14px; color: #666;">Click on a conversation to start chatting</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chat-messages" id="chatMessages">
+                            <!-- Messages will be displayed here -->
+                        </div>
+                        <div class="chat-input">
+                            <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." disabled>
+                            <button class="btn btn-primary" id="sendMessageBtn" disabled>
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Page -->
+            <div id="profilePage" class="page">
+                <div class="header">
+                    <h1 class="page-title">My Profile</h1>
+                    <button class="btn btn-primary" id="editProfileBtn">
+                        <i class="fas fa-edit"></i> Edit Profile
+                    </button>
+                </div>
+                
+                <div class="form-container">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <img id="profilePhoto" src="https://ui-avatars.com/api/?name=User&background=32cd32&color=fff&size=150" alt="Profile" style="width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 5px solid var(--light-gray);">
+                        <div style="margin-top: 15px;">
+                            <button class="btn btn-outline" id="changePhotoBtn">
+                                <i class="fas fa-camera"></i> Change Photo
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" id="profileName" class="form-control" value="Loading...">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" id="profileEmail" class="form-control" value="Loading...">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" id="profilePhone" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ID Number</label>
+                            <input type="text" id="profileId" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Town</label>
+                            <input type="text" id="profileTown" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">County</label>
+                            <input type="text" id="profileCounty" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 30px; text-align: center;">
+                        <button id="saveProfileBtn" class="btn btn-primary" style="padding: 12px 40px;">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="addFundsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Funds to Wallet</h2>
+                <button class="close-modal" onclick="closeModal('addFundsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Amount to Add ($)</label>
+                    <input type="number" id="addFundsAmount" class="form-control" min="10" step="5" placeholder="Enter amount">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select id="paymentMethod" class="form-control">
+                        <option value="credit_card">Credit/Debit Card</option>
+                        <option value="mpesa">M-Pesa</option>
+                        <option value="paypal">PayPal</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                    </select>
+                </div>
+                <button id="confirmAddFunds" class="btn btn-primary" style="width: 100%; margin-top: 20px;">
+                    <i class="fas fa-lock"></i> Proceed to Payment
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <i id="toastIcon" class="fas fa-check-circle"></i>
+        <span id="toastMessage">Operation completed successfully!</span>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.9); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+        <div class="spinner"></div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyB-cyGvUm_XZBvP62OpCLoELYK5b8jABig",
+            authDomain: "finance-report-246b1.firebaseapp.com",
+            projectId: "finance-report-246b1",
+            storageBucket: "finance-report-246b1.firebasestorage.app",
+            messagingSenderId: "506353861080",
+            appId: "1:506353861080:web:b5b2526f2828f380d9b2ad"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // Global Variables
+        let currentUser = null;
+        let userData = {};
+        let userLocation = null;
+
+        // DOM Elements
+        const loginPage = document.getElementById('loginPage');
+        const appContainer = document.getElementById('appContainer');
+        const pages = document.querySelectorAll('.page');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const toast = document.getElementById('toast');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        // Initialize the App
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize event listeners
+            initEventListeners();
+            
+            // Check authentication state
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    loadUserData();
+                    showApp();
+                } else {
+                    showLogin();
+                }
+            });
+            
+            // Initialize service fee calculation
+            document.getElementById('errandBudget').addEventListener('input', calculateServiceFee);
+            
+            // Initialize travel required toggle
+            document.querySelectorAll('input[name="travelRequired"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    document.getElementById('travelDetails').style.display = 
+                        this.value === 'yes' ? 'block' : 'none';
+                });
+            });
+        });
+
+        // Event Listeners
+        function initEventListeners() {
+            // Login buttons
+            document.getElementById('googleLoginBtn').addEventListener('click', signInWithGoogle);
+            document.getElementById('emailLoginBtn').addEventListener('click', signInWithEmail);
+            document.getElementById('signupLink').addEventListener('click', showSignup);
+            
+            // Navigation
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const page = this.getAttribute('data-page');
+                    showPage(page);
+                    
+                    // Update active state
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+            
+            // Buttons
+            document.getElementById('refreshBtn').addEventListener('click', refreshDashboard);
+            document.getElementById('quickPostBtn').addEventListener('click', () => showPage('postErrand'));
+            document.getElementById('addFundsBtn').addEventListener('click', () => showModal('addFundsModal'));
+            document.getElementById('submitErrandBtn').addEventListener('click', submitErrand);
+            document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
+            document.getElementById('changePhotoBtn').addEventListener('click', changeProfilePhoto);
+            document.getElementById('confirmAddFunds').addEventListener('click', processPayment);
+            document.getElementById('useCurrentLocation').addEventListener('change', getCurrentLocation);
+            
+            // My Errands filter
+            document.querySelectorAll('.btn-group .btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    filterErrands(this.getAttribute('data-filter'));
+                });
+            });
+        }
+
+        // Authentication Functions
+        async function signInWithGoogle() {
+            showLoading();
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                await auth.signInWithPopup(provider);
+                showToast('Successfully signed in!', 'success');
+            } catch (error) {
+                showToast('Error signing in: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function signInWithEmail() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showToast('Please enter email and password', 'error');
+                return;
+            }
+            
+            showLoading();
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                showToast('Successfully signed in!', 'success');
+            } catch (error) {
+                // If user doesn't exist, create new account
+                if (error.code === 'auth/user-not-found') {
+                    await createUserWithEmail(email, password);
+                } else {
+                    showToast('Error: ' + error.message, 'error');
+                }
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function createUserWithEmail(email, password) {
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                // Create user document in Firestore
+                await db.collection('users').doc(userCredential.user.uid).set({
+                    email: email,
+                    name: email.split('@')[0],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    userType: 'client'
+                });
+                showToast('Account created successfully!', 'success');
+            } catch (error) {
+                showToast('Error creating account: ' + error.message, 'error');
+            }
+        }
+
+        function showSignup(e) {
+            e.preventDefault();
+            document.getElementById('emailLoginBtn').textContent = 'Sign Up';
+            document.getElementById('signupLink').innerHTML = 'Already have an account? Sign in';
+            showToast('Enter your details to create a new account', 'info');
+        }
+
+        // User Data Functions
+        async function loadUserData() {
+            if (!currentUser) return;
+            
+            showLoading();
+            try {
+                const userDoc = await db.collection('users').doc(currentUser.uid).get();
+                
+                if (userDoc.exists) {
+                    userData = userDoc.data();
+                    
+                    // Update UI with user data
+                    document.getElementById('userName').textContent = userData.name || 'User';
+                    document.getElementById('userEmail').textContent = userData.email || currentUser.email;
+                    
+                    document.getElementById('profileName').value = userData.name || '';
+                    document.getElementById('profileEmail').value = userData.email || currentUser.email;
+                    document.getElementById('profilePhone').value = userData.phone || '';
+                    document.getElementById('profileId').value = userData.idNumber || '';
+                    document.getElementById('profileTown').value = userData.town || '';
+                    document.getElementById('profileCounty').value = userData.county || '';
+                    
+                    if (userData.photoURL) {
+                        document.getElementById('userAvatar').src = userData.photoURL;
+                        document.getElementById('profilePhoto').src = userData.photoURL;
+                    }
+                    
+                    // Load user's errands
+                    loadUserErrands();
+                    // Load dashboard data
+                    loadDashboardData();
+                } else {
+                    // Create user document if it doesn't exist
+                    await db.collection('users').doc(currentUser.uid).set({
+                        email: currentUser.email,
+                        name: currentUser.displayName || currentUser.email.split('@')[0],
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        userType: 'client',
+                        walletBalance: 0,
+                        rating: 5.0,
+                        totalErrands: 0,
+                        totalSpent: 0
+                    });
+                    
+                    userData = {
+                        email: currentUser.email,
+                        name: currentUser.displayName || currentUser.email.split('@')[0],
+                        walletBalance: 0,
+                        rating: 5.0
+                    };
+                    
+                    updateUserUI();
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                showToast('Error loading user data', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function saveProfile() {
+            showLoading();
+            try {
+                const updates = {
+                    name: document.getElementById('profileName').value,
+                    phone: document.getElementById('profilePhone').value,
+                    idNumber: document.getElementById('profileId').value,
+                    town: document.getElementById('profileTown').value,
+                    county: document.getElementById('profileCounty').value,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                await db.collection('users').doc(currentUser.uid).update(updates);
+                
+                // Update local userData
+                Object.assign(userData, updates);
+                
+                // Update UI
+                updateUserUI();
+                
+                showToast('Profile updated successfully!', 'success');
+            } catch (error) {
+                showToast('Error updating profile: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function changeProfilePhoto() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                showLoading();
+                try {
+                    // Upload to Firebase Storage
+                    const storageRef = storage.ref();
+                    const photoRef = storageRef.child(`profile_photos/${currentUser.uid}/${file.name}`);
+                    await photoRef.put(file);
+                    const photoURL = await photoRef.getDownloadURL();
+                    
+                    // Update user document
+                    await db.collection('users').doc(currentUser.uid).update({
+                        photoURL: photoURL
+                    });
+                    
+                    // Update UI
+                    document.getElementById('userAvatar').src = photoURL;
+                    document.getElementById('profilePhoto').src = photoURL;
+                    userData.photoURL = photoURL;
+                    
+                    showToast('Profile photo updated!', 'success');
+                } catch (error) {
+                    showToast('Error uploading photo: ' + error.message, 'error');
+                } finally {
+                    hideLoading();
+                }
+            };
+            
+            input.click();
+        }
+
+        // Errand Functions
+        function calculateServiceFee() {
+            const budget = parseFloat(document.getElementById('errandBudget').value) || 0;
+            const serviceFee = budget * 0.20;
+            const runnerReceives = budget - serviceFee;
+            
+            document.getElementById('serviceFee').textContent = serviceFee.toFixed(2);
+            document.getElementById('runnerReceives').textContent = runnerReceives.toFixed(2);
+        }
+
+        async function submitErrand() {
+            // Validate form
+            const errandType = document.querySelector('input[name="errandType"]:checked').value;
+            const customType = document.getElementById('customErrandType').value;
+            const description = document.getElementById('errandDescription').value;
+            const travelRequired = document.querySelector('input[name="travelRequired"]:checked').value;
+            const travelFrom = travelRequired === 'yes' ? document.getElementById('travelFrom').value : '';
+            const travelTo = travelRequired === 'yes' ? document.getElementById('travelTo').value : '';
+            const town = document.getElementById('errandTown').value;
+            const area = document.getElementById('errandArea').value;
+            const runnerNeeds = document.getElementById('runnerNeeds').value;
+            const meetRequired = document.querySelector('input[name="meetRequired"]:checked').value;
+            const budget = parseFloat(document.getElementById('errandBudget').value);
+            const deadline = document.getElementById('errandDeadline').value;
+            const useLocation = document.getElementById('useCurrentLocation').checked;
+            
+            if (!description || !town || !area || !budget || budget < 5) {
+                showToast('Please fill all required fields with valid data', 'error');
+                return;
+            }
+            
+            if (userData.walletBalance < budget) {
+                showToast('Insufficient wallet balance. Please add funds.', 'error');
+                showModal('addFundsModal');
+                return;
+            }
+            
+            showLoading();
+            try {
+                const errandData = {
+                    clientId: currentUser.uid,
+                    clientName: userData.name,
+                    errandType: customType || errandType,
+                    description: description,
+                    travelRequired: travelRequired === 'yes',
+                    travelFrom: travelFrom,
+                    travelTo: travelTo,
+                    town: town,
+                    area: area,
+                    runnerNeeds: runnerNeeds,
+                    meetRequired: meetRequired === 'yes',
+                    budget: budget,
+                    serviceFee: budget * 0.20,
+                    runnerAmount: budget * 0.80,
+                    deadline: deadline ? new Date(deadline) : null,
+                    status: 'pending',
+                    bids: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    location: useLocation && userLocation ? userLocation : null
+                };
+                
+                // Deduct from wallet
+                const newBalance = userData.walletBalance - budget;
+                await db.collection('users').doc(currentUser.uid).update({
+                    walletBalance: newBalance
+                });
+                
+                // Create errand
+                const errandRef = await db.collection('errands').add(errandData);
+                
+                // Create escrow transaction
+                await db.collection('transactions').add({
+                    errandId: errandRef.id,
+                    clientId: currentUser.uid,
+                    amount: budget,
+                    type: 'escrow_deposit',
+                    status: 'completed',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Update user stats
+                await db.collection('users').doc(currentUser.uid).update({
+                    totalErrands: firebase.firestore.FieldValue.increment(1),
+                    walletBalance: newBalance
+                });
+                
+                userData.walletBalance = newBalance;
+                updateUserUI();
+                
+                showToast('Errand posted successfully! Runners can now bid on it.', 'success');
+                showPage('myErrands');
+                
+                // Reset form
+                document.getElementById('errandForm').reset();
+                document.getElementById('travelDetails').style.display = 'none';
+                calculateServiceFee();
+            } catch (error) {
+                showToast('Error posting errand: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadUserErrands() {
+            try {
+                const snapshot = await db.collection('errands')
+                    .where('clientId', '==', currentUser.uid)
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .get();
+                
+                const errandsList = document.getElementById('myErrandsList');
+                errandsList.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    errandsList.innerHTML = `
+                        <div style="text-align: center; padding: 40px; background-color: white; border-radius: var(--radius);">
+                            <i class="fas fa-tasks" style="font-size: 48px; color: var(--medium-gray); margin-bottom: 20px;"></i>
+                            <h3>No errands yet</h3>
+                            <p>Post your first errand to get started!</p>
+                            <button class="btn btn-primary" onclick="showPage('postErrand')" style="margin-top: 20px;">
+                                <i class="fas fa-plus"></i> Post Your First Errand
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                snapshot.forEach(doc => {
+                    const errand = doc.data();
+                    const errandCard = createErrandCard(errand, doc.id);
+                    errandsList.appendChild(errandCard);
+                });
+            } catch (error) {
+                console.error('Error loading errands:', error);
+            }
+        }
+
+        async function loadDashboardData() {
+            try {
+                // Load recent errands
+                const snapshot = await db.collection('errands')
+                    .where('clientId', '==', currentUser.uid)
+                    .orderBy('createdAt', 'desc')
+                    .limit(5)
+                    .get();
+                
+                const recentErrands = document.getElementById('recentErrands');
+                recentErrands.innerHTML = '';
+                
+                snapshot.forEach(doc => {
+                    const errand = doc.data();
+                    const errandCard = createErrandCard(errand, doc.id);
+                    recentErrands.appendChild(errandCard);
+                });
+                
+                // Update stats
+                const totalErrands = await getTotalErrands();
+                const totalSpent = await getTotalSpent();
+                
+                document.getElementById('activeErrandsCount').textContent = 
+                    await getActiveErrandsCount();
+                document.getElementById('totalSpent').textContent = `$${totalSpent.toFixed(2)}`;
+                document.getElementById('clientRating').textContent = userData.rating?.toFixed(1) || '5.0';
+                document.getElementById('walletBalance').textContent = `$${userData.walletBalance?.toFixed(2) || '0.00'}`;
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        async function getTotalErrands() {
+            const snapshot = await db.collection('errands')
+                .where('clientId', '==', currentUser.uid)
+                .get();
+            return snapshot.size;
+        }
+
+        async function getTotalSpent() {
+            const snapshot = await db.collection('errands')
+                .where('clientId', '==', currentUser.uid)
+                .where('status', '==', 'completed')
+                .get();
+            
+            let total = 0;
+            snapshot.forEach(doc => {
+                total += doc.data().budget || 0;
+            });
+            return total;
+        }
+
+        async function getActiveErrandsCount() {
+            const snapshot = await db.collection('errands')
+                .where('clientId', '==', currentUser.uid)
+                .where('status', 'in', ['pending', 'active'])
+                .get();
+            return snapshot.size;
+        }
+
+        function createErrandCard(errand, id) {
+            const card = document.createElement('div');
+            card.className = 'errand-card';
+            card.dataset.id = id;
+            card.dataset.status = errand.status;
+            
+            const statusClass = `status-${errand.status}`;
+            
+            card.innerHTML = `
+                <div class="errand-header">
+                    <span class="errand-type">${errand.errandType}</span>
+                    <span class="errand-budget">$${errand.budget?.toFixed(2)}</span>
+                </div>
+                <div class="errand-body">
+                    <h3 class="errand-title">${errand.description.substring(0, 60)}${errand.description.length > 60 ? '...' : ''}</h3>
+                    <p class="errand-desc">${errand.description}</p>
+                    <div class="errand-details">
+                        <div class="errand-detail">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>${errand.town}, ${errand.area}</span>
+                        </div>
+                        ${errand.travelRequired ? `
+                        <div class="errand-detail">
+                            <i class="fas fa-route"></i>
+                            <span>Travel Required</span>
+                        </div>
+                        ` : ''}
+                        ${errand.runnerNeeds ? `
+                        <div class="errand-detail">
+                            <i class="fas fa-tools"></i>
+                            <span>${errand.runnerNeeds}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                <div class="errand-footer">
+                    <span class="errand-status ${statusClass}">${errand.status.toUpperCase()}</span>
+                    <div>
+                        ${errand.status === 'pending' ? `
+                        <button class="btn btn-outline" onclick="viewBids('${id}')" style="padding: 5px 15px; font-size: 12px;">
+                            <i class="fas fa-gavel"></i> View Bids (${errand.bids?.length || 0})
+                        </button>
+                        ` : ''}
+                        <button class="btn btn-outline" onclick="viewErrandDetails('${id}')" style="padding: 5px 15px; font-size: 12px;">
+                            <i class="fas fa-eye"></i> Details
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function filterErrands(filter) {
+            const cards = document.querySelectorAll('.errand-card');
+            cards.forEach(card => {
+                if (filter === 'all' || card.dataset.status === filter) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Payment Functions
+        async function processPayment() {
+            const amount = parseFloat(document.getElementById('addFundsAmount').value);
+            const method = document.getElementById('paymentMethod').value;
+            
+            if (!amount || amount < 10) {
+                showToast('Minimum amount is $10', 'error');
+                return;
+            }
+            
+            showLoading();
+            try {
+                // In a real app, integrate with payment gateway here
+                // For demo purposes, we'll simulate payment success
+                
+                // Update user's wallet balance
+                const newBalance = (userData.walletBalance || 0) + amount;
+                await db.collection('users').doc(currentUser.uid).update({
+                    walletBalance: newBalance
+                });
+                
+                // Record transaction
+                await db.collection('transactions').add({
+                    userId: currentUser.uid,
+                    amount: amount,
+                    type: 'wallet_topup',
+                    method: method,
+                    status: 'completed',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                userData.walletBalance = newBalance;
+                updateUserUI();
+                
+                showToast(`Successfully added $${amount.toFixed(2)} to your wallet!`, 'success');
+                closeModal('addFundsModal');
+            } catch (error) {
+                showToast('Payment failed: ' + error.message, 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Location Functions
+        function getCurrentLocation() {
+            if (!navigator.geolocation) {
+                showToast('Geolocation is not supported by your browser', 'error');
+                return;
+            }
+            
+            showLoading();
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    showToast('Location obtained successfully!', 'success');
+                    hideLoading();
+                },
+                (error) => {
+                    showToast('Unable to retrieve location: ' + error.message, 'error');
+                    hideLoading();
+                }
+            );
+        }
+
+        // UI Helper Functions
+        function showPage(pageId) {
+            pages.forEach(page => page.classList.remove('active'));
+            document.getElementById(`${pageId}Page`).classList.add('active');
+        }
+
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showToast(message, type = 'info') {
+            toast.className = `toast ${type}`;
+            document.getElementById('toastMessage').textContent = message;
+            
+            const icon = document.getElementById('toastIcon');
+            if (type === 'success') {
+                icon.className = 'fas fa-check-circle';
+            } else if (type === 'error') {
+                icon.className = 'fas fa-exclamation-circle';
+            } else {
+                icon.className = 'fas fa-info-circle';
+            }
+            
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function showLoading() {
+            loadingSpinner.style.display = 'flex';
+        }
+
+        function hideLoading() {
+            loadingSpinner.style.display = 'none';
+        }
+
+        function showApp() {
+            loginPage.style.display = 'none';
+            appContainer.style.display = 'flex';
+        }
+
+        function showLogin() {
+            loginPage.style.display = 'flex';
+            appContainer.style.display = 'none';
+        }
+
+        function updateUserUI() {
+            document.getElementById('userName').textContent = userData.name || 'User';
+            document.getElementById('userEmail').textContent = userData.email || '';
+            document.getElementById('walletBalance').textContent = `$${userData.walletBalance?.toFixed(2) || '0.00'}`;
+            
+            if (userData.photoURL) {
+                document.getElementById('userAvatar').src = userData.photoURL;
+            }
+        }
+
+        function refreshDashboard() {
+            loadDashboardData();
+            showToast('Dashboard refreshed!', 'success');
+        }
+
+        // Demo functions for incomplete features
+        function viewBids(errandId) {
+            showToast('Bids feature will be implemented in the runner app', 'info');
+        }
+
+        function viewErrandDetails(errandId) {
+            showToast('Errand details modal will be implemented', 'info');
+        }
+
+        // Close modals when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>

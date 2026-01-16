@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ERRANDS - Task & Delivery Service</title>
     
     <!-- Firebase SDKs -->
@@ -37,6 +37,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -44,6 +45,7 @@
             background-color: #f8f9fa;
             color: var(--dark-gray);
             overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
         }
 
         .app-container {
@@ -170,6 +172,14 @@
             color: var(--dark-gray);
         }
 
+        .welcome-message {
+            font-family: 'Poppins', sans-serif;
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--dark-gray);
+            margin-bottom: 10px;
+        }
+
         .stats-cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -233,6 +243,7 @@
             align-items: center;
             gap: 8px;
             font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
         }
 
         .btn-primary {
@@ -301,6 +312,7 @@
             font-family: 'Inter', sans-serif;
             font-size: 16px;
             transition: var(--transition);
+            -webkit-appearance: none;
         }
 
         .form-control:focus {
@@ -327,6 +339,50 @@
             align-items: center;
             gap: 8px;
             cursor: pointer;
+        }
+
+        /* Modern Errand Type Selector */
+        .errand-type-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .errand-type-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 15px;
+            background: white;
+            border: 2px solid var(--medium-gray);
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: var(--transition);
+            text-align: center;
+        }
+
+        .errand-type-option:hover {
+            border-color: var(--lime-green);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow);
+        }
+
+        .errand-type-option.selected {
+            border-color: var(--lime-green);
+            background-color: rgba(50, 205, 50, 0.1);
+        }
+
+        .errand-type-option i {
+            font-size: 28px;
+            color: var(--lime-green);
+            margin-bottom: 10px;
+        }
+
+        .errand-type-option span {
+            font-weight: 500;
+            font-size: 14px;
         }
 
         /* Login Page Styles */
@@ -635,7 +691,36 @@
             gap: 10px;
         }
 
-        /* Responsive Styles */
+        /* Support Buttons Container */
+        .support-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .support-btn {
+            flex: 1;
+            min-width: 140px;
+        }
+
+        /* Responsive Styles - Optimized for Mobile */
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 220px;
+                padding: 20px 15px;
+            }
+            
+            .nav-link {
+                padding: 12px 15px;
+                font-size: 14px;
+            }
+            
+            .page-title {
+                font-size: 24px;
+            }
+        }
+
         @media (max-width: 992px) {
             .app-container {
                 flex-direction: column;
@@ -645,17 +730,21 @@
                 width: 100%;
                 height: auto;
                 padding: 15px;
+                position: sticky;
+                top: 0;
             }
             
             .nav-links {
                 display: flex;
                 overflow-x: auto;
                 margin-bottom: 15px;
+                padding-bottom: 10px;
             }
             
             .nav-item {
                 margin-bottom: 0;
                 margin-right: 10px;
+                flex-shrink: 0;
             }
             
             .user-profile {
@@ -665,19 +754,81 @@
             .form-row {
                 grid-template-columns: 1fr;
             }
+            
+            .errand-type-selector {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+            
+            .support-buttons {
+                flex-direction: column;
+            }
+            
+            .support-btn {
+                width: 100%;
+            }
         }
 
         @media (max-width: 768px) {
             .stats-cards {
                 grid-template-columns: 1fr;
+                gap: 15px;
             }
             
             .errands-list {
                 grid-template-columns: 1fr;
+                gap: 15px;
             }
             
             .login-container {
                 flex-direction: column;
+                padding: 20px;
+            }
+            
+            .login-left, .login-right {
+                padding: 20px;
+                width: 100%;
+            }
+            
+            .login-card {
+                padding: 25px;
+                box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            }
+            
+            .main-content {
+                padding: 15px;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .page-title {
+                font-size: 22px;
+            }
+            
+            .welcome-message {
+                font-size: 20px;
+            }
+            
+            .form-container {
+                padding: 20px;
+                margin: 0;
+            }
+            
+            .errand-type-selector {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+                gap: 10px;
+            }
+            
+            .errand-type-option {
+                padding: 15px 10px;
+            }
+            
+            .errand-type-option i {
+                font-size: 24px;
             }
             
             .chat-container {
@@ -688,6 +839,85 @@
             .chat-sidebar {
                 width: 100%;
                 height: 200px;
+            }
+            
+            .stat-card {
+                padding: 20px;
+            }
+            
+            .stat-value {
+                font-size: 28px;
+            }
+            
+            .btn {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+            
+            .modal-content {
+                width: 95%;
+                max-width: 95%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-left h1 {
+                font-size: 32px;
+            }
+            
+            .login-left p {
+                font-size: 16px;
+            }
+            
+            .errand-type-selector {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .nav-links {
+                gap: 5px;
+            }
+            
+            .nav-item {
+                margin-right: 5px;
+            }
+            
+            .nav-link {
+                padding: 10px;
+                gap: 8px;
+                font-size: 13px;
+            }
+            
+            .nav-link i {
+                font-size: 16px;
+            }
+            
+            .btn-group {
+                overflow-x: auto;
+                padding-bottom: 10px;
+            }
+            
+            .btn-group .btn {
+                flex-shrink: 0;
+            }
+            
+            .support-buttons {
+                gap: 8px;
+            }
+        }
+
+        /* Mobile-specific optimizations */
+        @media (hover: none) and (pointer: coarse) {
+            .btn, .nav-link, .errand-type-option {
+                min-height: 44px;
+                min-width: 44px;
+            }
+            
+            .form-control, select, input, textarea {
+                font-size: 16px; /* Prevents iOS zoom on focus */
+            }
+            
+            .stat-card:hover, .errand-card:hover {
+                transform: none;
             }
         }
 
@@ -718,6 +948,8 @@
             transform: translateY(100px);
             opacity: 0;
             transition: var(--transition);
+            max-width: 350px;
+            word-wrap: break-word;
         }
 
         .toast.show {
@@ -756,6 +988,55 @@
             border-radius: var(--radius);
             margin: 20px 0;
             text-align: center;
+        }
+
+        /* Profile Update Required Modal */
+        .profile-update-modal .modal-content {
+            max-width: 600px;
+        }
+
+        .profile-update-required {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .profile-update-required i {
+            font-size: 64px;
+            color: var(--lime-green);
+            margin-bottom: 20px;
+        }
+
+        .profile-update-required h2 {
+            font-family: 'Poppins', sans-serif;
+            margin-bottom: 15px;
+            color: var(--dark-gray);
+        }
+
+        .profile-update-required p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        /* Dashboard Welcome Section */
+        .dashboard-welcome {
+            background: linear-gradient(135deg, var(--lime-green) 0%, var(--light-blue) 100%);
+            color: white;
+            padding: 25px;
+            border-radius: var(--radius);
+            margin-bottom: 25px;
+            box-shadow: var(--shadow);
+        }
+
+        .dashboard-welcome h2 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .dashboard-welcome p {
+            opacity: 0.9;
+            font-size: 16px;
         }
     </style>
 </head>
@@ -883,6 +1164,12 @@
                     </div>
                 </div>
                 
+                <!-- Welcome Message -->
+                <div id="dashboardWelcome" class="dashboard-welcome" style="display: none;">
+                    <h2 id="welcomeMessage">HELLO User</h2>
+                    <p>Welcome to your ERRANDS dashboard. Track your tasks, manage payments, and connect with runners.</p>
+                </div>
+                
                 <div id="dashboardError" class="error-message" style="display: none;"></div>
                 
                 <div class="stats-cards">
@@ -896,7 +1183,7 @@
                     </div>
                     <div class="stat-card blue">
                         <h3>Total Spent</h3>
-                        <div class="stat-value" id="totalSpent">$0.00</div>
+                        <div class="stat-value" id="totalSpent">KSH 0.00</div>
                         <div class="stat-trend">
                             <i class="fas fa-arrow-up"></i>
                             <span>15% this month</span>
@@ -912,7 +1199,7 @@
                     </div>
                     <div class="stat-card blue">
                         <h3>Wallet Balance</h3>
-                        <div class="stat-value" id="walletBalance">$0.00</div>
+                        <div class="stat-value" id="walletBalance">KSH 0.00</div>
                         <div class="stat-trend negative">
                             <i class="fas fa-exclamation-circle"></i>
                             <span>Add funds to post errands</span>
@@ -940,9 +1227,16 @@
                             <button id="addFundsBtn" class="btn btn-secondary" style="width: 100%; margin-bottom: 15px;">
                                 <i class="fas fa-money-bill-wave"></i> Add Funds to Wallet
                             </button>
-                            <button id="callSupportBtn" class="btn btn-outline" style="width: 100%;">
-                                <i class="fas fa-phone"></i> Call Support
-                            </button>
+                            
+                            <!-- Support Buttons -->
+                            <div class="support-buttons">
+                                <button id="callSupportBtn" class="btn btn-outline support-btn" onclick="callSupport()">
+                                    <i class="fas fa-phone"></i> Call Support
+                                </button>
+                                <button id="whatsappSupportBtn" class="btn btn-outline support-btn" onclick="whatsappSupport()" style="background-color: #25D366; color: white; border-color: #25D366;">
+                                    <i class="fab fa-whatsapp"></i> WhatsApp
+                                </button>
+                            </div>
                         </div>
                         
                         <h2 style="margin-bottom: 20px; margin-top: 30px; font-family: 'Poppins', sans-serif;">Available Runners</h2>
@@ -971,33 +1265,34 @@
                     <form id="errandForm">
                         <div class="form-group">
                             <label class="form-label">1. Type of Errand</label>
-                            <div class="checkbox-group">
-                                <label class="checkbox-label">
-                                    <input type="radio" name="errandType" value="Mama Fua" checked>
+                            <div class="errand-type-selector">
+                                <div class="errand-type-option" data-value="Mama Fua">
+                                    <i class="fas fa-tshirt"></i>
                                     <span>Mama Fua (Laundry)</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="radio" name="errandType" value="Delivery">
+                                </div>
+                                <div class="errand-type-option" data-value="Delivery">
+                                    <i class="fas fa-shipping-fast"></i>
                                     <span>Delivery</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="radio" name="errandType" value="Shopping">
+                                </div>
+                                <div class="errand-type-option" data-value="Shopping">
+                                    <i class="fas fa-shopping-cart"></i>
                                     <span>Shopping</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="radio" name="errandType" value="Chauffeur">
+                                </div>
+                                <div class="errand-type-option" data-value="Chauffeur">
+                                    <i class="fas fa-car"></i>
                                     <span>Chauffeur</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="radio" name="errandType" value="Handy Work">
+                                </div>
+                                <div class="errand-type-option" data-value="Handy Work">
+                                    <i class="fas fa-tools"></i>
                                     <span>Handy Work</span>
-                                </label>
-                                <label class="checkbox-label">
-                                    <input type="radio" name="errandType" value="Repair Work">
+                                </div>
+                                <div class="errand-type-option" data-value="Repair Work">
+                                    <i class="fas fa-wrench"></i>
                                     <span>Repair Work</span>
-                                </label>
+                                </div>
                             </div>
-                            <input type="text" id="customErrandType" class="form-control" style="margin-top: 10px;" placeholder="Or enter custom errand type">
+                            <input type="hidden" id="selectedErrandType" name="errandType" value="">
+                            <input type="text" id="customErrandType" class="form-control" style="margin-top: 15px;" placeholder="Or enter custom errand type">
                         </div>
                         
                         <div class="form-group">
@@ -1064,11 +1359,11 @@
                         <div class="form-group">
                             <label class="form-label">7. Budget (Maximum you're willing to pay)</label>
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="font-size: 24px;">$</span>
-                                <input type="number" id="errandBudget" class="form-control" min="5" step="0.01" placeholder="Enter amount" value="50" style="flex: 1;">
+                                <span style="font-size: 24px;">KSH</span>
+                                <input type="number" id="errandBudget" class="form-control" min="500" step="50" placeholder="Enter amount" value="5000">
                             </div>
                             <div style="margin-top: 10px; font-size: 14px; color: #666;">
-                                Note: A 20% service fee ($<span id="serviceFee">10.00</span>) will be deducted. Runner receives $<span id="runnerReceives">40.00</span>
+                                Note: A 20% service fee (KSH <span id="serviceFee">1000.00</span>) will be deducted. Runner receives KSH <span id="runnerReceives">4000.00</span>
                             </div>
                         </div>
                         
@@ -1105,7 +1400,7 @@
                 <div id="errandsError" class="error-message" style="display: none;"></div>
                 
                 <div style="margin-bottom: 20px;">
-                    <div class="btn-group" style="display: flex; gap: 10px;">
+                    <div class="btn-group" style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button class="btn btn-outline active" data-filter="all">All Errands</button>
                         <button class="btn btn-outline" data-filter="pending">Pending</button>
                         <button class="btn btn-outline" data-filter="active">Active</button>
@@ -1183,7 +1478,28 @@
         </div>
     </div>
 
-    <!-- Modals -->
+    <!-- Profile Update Required Modal -->
+    <div id="profileUpdateModal" class="modal profile-update-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Complete Your Profile</h2>
+            </div>
+            <div class="modal-body">
+                <div class="profile-update-required">
+                    <i class="fas fa-user-circle"></i>
+                    <h2>Welcome to ERRANDS!</h2>
+                    <p>To provide you with the best experience, please complete your profile information before continuing. This helps us match you with the right runners and ensure smooth transactions.</p>
+                    <div style="margin-top: 30px;">
+                        <button id="goToProfileBtn" class="btn btn-primary" style="padding: 15px 40px; font-size: 18px;">
+                            <i class="fas fa-user-edit"></i> Complete Profile Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Funds Modal -->
     <div id="addFundsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -1192,8 +1508,8 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">Amount to Add ($)</label>
-                    <input type="number" id="addFundsAmount" class="form-control" min="10" step="5" placeholder="Enter amount" value="100">
+                    <label class="form-label">Amount to Add (KSH)</label>
+                    <input type="number" id="addFundsAmount" class="form-control" min="1000" step="500" placeholder="Enter amount" value="10000">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Payment Method</label>
@@ -1258,6 +1574,7 @@
         let currentUser = null;
         let userData = {};
         let userLocation = null;
+        let isNewUser = false;
 
         // DOM Elements
         const loginPage = document.getElementById('loginPage');
@@ -1266,6 +1583,7 @@
         const navLinks = document.querySelectorAll('.nav-link');
         const toast = document.getElementById('toast');
         const loadingSpinner = document.getElementById('loadingSpinner');
+        const profileUpdateModal = document.getElementById('profileUpdateModal');
 
         // Initialize the App
         document.addEventListener('DOMContentLoaded', function() {
@@ -1305,6 +1623,9 @@
                         this.value === 'yes' ? 'block' : 'none';
                 });
             });
+            
+            // Initialize modern errand type selector
+            initializeErrandTypeSelector();
         });
 
         // Event Listeners
@@ -1345,6 +1666,7 @@
             const confirmAddFunds = document.getElementById('confirmAddFunds');
             const useCurrentLocation = document.getElementById('useCurrentLocation');
             const logoutBtn = document.getElementById('logoutBtn');
+            const goToProfileBtn = document.getElementById('goToProfileBtn');
             
             if (refreshBtn) refreshBtn.addEventListener('click', refreshDashboard);
             if (quickPostBtn) quickPostBtn.addEventListener('click', () => showPage('postErrand'));
@@ -1355,6 +1677,10 @@
             if (confirmAddFunds) confirmAddFunds.addEventListener('click', processPayment);
             if (useCurrentLocation) useCurrentLocation.addEventListener('change', getCurrentLocation);
             if (logoutBtn) logoutBtn.addEventListener('click', logout);
+            if (goToProfileBtn) goToProfileBtn.addEventListener('click', () => {
+                closeModal('profileUpdateModal');
+                showPage('profile');
+            });
             
             // My Errands filter
             document.querySelectorAll('.btn-group .btn').forEach(btn => {
@@ -1364,6 +1690,57 @@
                     filterErrands(this.getAttribute('data-filter'));
                 });
             });
+        }
+
+        function initializeErrandTypeSelector() {
+            const options = document.querySelectorAll('.errand-type-option');
+            const customInput = document.getElementById('customErrandType');
+            const hiddenInput = document.getElementById('selectedErrandType');
+            
+            options.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Remove selected class from all options
+                    options.forEach(opt => opt.classList.remove('selected'));
+                    
+                    // Add selected class to clicked option
+                    this.classList.add('selected');
+                    
+                    // Set the value
+                    const value = this.getAttribute('data-value');
+                    hiddenInput.value = value;
+                    
+                    // Clear custom input
+                    customInput.value = '';
+                });
+            });
+            
+            // When custom input is used, clear selection
+            customInput.addEventListener('input', function() {
+                options.forEach(opt => opt.classList.remove('selected'));
+                hiddenInput.value = this.value || '';
+            });
+            
+            // When custom input loses focus, if it has value, set it
+            customInput.addEventListener('blur', function() {
+                if (this.value) {
+                    hiddenInput.value = this.value;
+                }
+            });
+        }
+
+        // Support Functions
+        function callSupport() {
+            const phoneNumber = '+254793312993';
+            if (confirm(`Call support at ${phoneNumber}?`)) {
+                window.open(`tel:${phoneNumber}`, '_self');
+            }
+        }
+
+        function whatsappSupport() {
+            const phoneNumber = '+254793312993';
+            const message = 'Hello ERRANDS Support, I need assistance with:';
+            const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
         }
 
         // Authentication Functions
@@ -1398,6 +1775,7 @@
                 console.error('Email sign in error:', error);
                 // If user doesn't exist, create new account
                 if (error.code === 'auth/user-not-found') {
+                    isNewUser = true;
                     await createUserWithEmail(email, password);
                 } else {
                     showLoginError('Error: ' + error.message);
@@ -1410,21 +1788,19 @@
         async function createUserWithEmail(email, password) {
             try {
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                // Create user document in Firestore
+                // Create user document in Firestore with minimal data
                 await db.collection('users').doc(userCredential.user.uid).set({
                     email: email,
                     name: email.split('@')[0],
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     userType: 'client',
-                    walletBalance: 100, // Give new users $100 for testing
+                    walletBalance: 5000, // Give new users KSH 5000 for testing
                     rating: 5.0,
                     totalErrands: 0,
                     totalSpent: 0,
-                    phone: '+254712345678',
-                    town: 'Nairobi',
-                    county: 'Nairobi County'
+                    profileComplete: false // Flag to check if profile is complete
                 });
-                showToast('Account created successfully! You have $100 in your wallet.', 'success');
+                showToast('Account created successfully! You have KSH 5000 in your wallet.', 'success');
             } catch (error) {
                 console.error('Create user error:', error);
                 showLoginError('Error creating account: ' + error.message);
@@ -1466,20 +1842,25 @@
                 if (userDoc.exists) {
                     userData = userDoc.data();
                     
+                    // Check if profile is complete
+                    if (!userData.profileComplete || isNewUser) {
+                        // Show profile update modal for new users or incomplete profiles
+                        setTimeout(() => {
+                            showModal('profileUpdateModal');
+                        }, 1000);
+                    }
+                    
                     // Update UI with user data
-                    document.getElementById('userName').textContent = userData.name || 'User';
-                    document.getElementById('userEmail').textContent = userData.email || currentUser.email;
+                    updateUserUI();
                     
-                    document.getElementById('profileName').value = userData.name || '';
-                    document.getElementById('profileEmail').value = userData.email || currentUser.email;
-                    document.getElementById('profilePhone').value = userData.phone || '';
-                    document.getElementById('profileId').value = userData.idNumber || '';
-                    document.getElementById('profileTown').value = userData.town || '';
-                    document.getElementById('profileCounty').value = userData.county || '';
-                    
-                    if (userData.photoURL) {
-                        document.getElementById('userAvatar').src = userData.photoURL;
-                        document.getElementById('profilePhoto').src = userData.photoURL;
+                    // Update welcome message
+                    const welcomeMessage = document.getElementById('welcomeMessage');
+                    const dashboardWelcome = document.getElementById('dashboardWelcome');
+                    if (welcomeMessage) {
+                        welcomeMessage.textContent = `HELLO ${userData.name || 'User'}`;
+                    }
+                    if (dashboardWelcome) {
+                        dashboardWelcome.style.display = 'block';
                     }
                     
                     // Load user's errands
@@ -1495,21 +1876,28 @@
                         name: currentUser.displayName || currentUser.email.split('@')[0],
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                         userType: 'client',
-                        walletBalance: 100,
+                        walletBalance: 5000,
                         rating: 5.0,
                         totalErrands: 0,
-                        totalSpent: 0
+                        totalSpent: 0,
+                        profileComplete: false
                     });
                     
                     userData = {
                         email: currentUser.email,
                         name: currentUser.displayName || currentUser.email.split('@')[0],
-                        walletBalance: 100,
-                        rating: 5.0
+                        walletBalance: 5000,
+                        rating: 5.0,
+                        profileComplete: false
                     };
                     
+                    // Show profile update modal for new users
+                    setTimeout(() => {
+                        showModal('profileUpdateModal');
+                    }, 1000);
+                    
                     updateUserUI();
-                    showToast('Welcome to ERRANDS! You have $100 in your wallet.', 'success');
+                    showToast('Welcome to ERRANDS! You have KSH 5000 in your wallet.', 'success');
                 }
             } catch (error) {
                 console.error('Error loading user data:', error);
@@ -1517,6 +1905,26 @@
             } finally {
                 hideLoading();
             }
+        }
+
+        function updateUserUI() {
+            document.getElementById('userName').textContent = userData.name || 'User';
+            document.getElementById('userEmail').textContent = userData.email || currentUser.email;
+            
+            document.getElementById('profileName').value = userData.name || '';
+            document.getElementById('profileEmail').value = userData.email || currentUser.email;
+            document.getElementById('profilePhone').value = userData.phone || '';
+            document.getElementById('profileId').value = userData.idNumber || '';
+            document.getElementById('profileTown').value = userData.town || '';
+            document.getElementById('profileCounty').value = userData.county || '';
+            
+            if (userData.photoURL) {
+                document.getElementById('userAvatar').src = userData.photoURL;
+                document.getElementById('profilePhoto').src = userData.photoURL;
+            }
+            
+            // Update wallet balance display
+            document.getElementById('walletBalance').textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
         }
 
         async function saveProfile() {
@@ -1528,6 +1936,7 @@
                     idNumber: document.getElementById('profileId').value,
                     town: document.getElementById('profileTown').value,
                     county: document.getElementById('profileCounty').value,
+                    profileComplete: true,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 
@@ -1538,6 +1947,12 @@
                 
                 // Update UI
                 updateUserUI();
+                
+                // Update welcome message
+                const welcomeMessage = document.getElementById('welcomeMessage');
+                if (welcomeMessage) {
+                    welcomeMessage.textContent = `HELLO ${userData.name}`;
+                }
                 
                 showToast('Profile updated successfully!', 'success');
             } catch (error) {
@@ -1598,9 +2013,16 @@
         }
 
         async function submitErrand() {
-            // Validate form
-            const errandType = document.querySelector('input[name="errandType"]:checked').value;
+            // Get selected errand type
+            const selectedType = document.getElementById('selectedErrandType').value;
             const customType = document.getElementById('customErrandType').value;
+            const errandType = customType || selectedType;
+            
+            if (!errandType) {
+                showToast('Please select or enter an errand type', 'error');
+                return;
+            }
+            
             const description = document.getElementById('errandDescription').value;
             const travelRequired = document.querySelector('input[name="travelRequired"]:checked').value;
             const travelFrom = travelRequired === 'yes' ? document.getElementById('travelFrom').value : '';
@@ -1613,8 +2035,8 @@
             const deadline = document.getElementById('errandDeadline').value;
             const useLocation = document.getElementById('useCurrentLocation').checked;
             
-            if (!description || !town || !area || !budget || budget < 5) {
-                showToast('Please fill all required fields with valid data', 'error');
+            if (!description || !town || !area || !budget || budget < 500) {
+                showToast('Please fill all required fields with valid data. Minimum budget is KSH 500.', 'error');
                 return;
             }
             
@@ -1629,7 +2051,7 @@
                 const errandData = {
                     clientId: currentUser.uid,
                     clientName: userData.name,
-                    errandType: customType || errandType,
+                    errandType: errandType,
                     description: description,
                     travelRequired: travelRequired === 'yes',
                     travelFrom: travelFrom,
@@ -1682,6 +2104,8 @@
                 // Reset form
                 document.getElementById('errandForm').reset();
                 document.getElementById('travelDetails').style.display = 'none';
+                document.querySelectorAll('.errand-type-option').forEach(opt => opt.classList.remove('selected'));
+                document.getElementById('selectedErrandType').value = '';
                 calculateServiceFee();
                 
                 // Reload errands
@@ -1742,20 +2166,30 @@
                 const recentErrands = document.getElementById('recentErrands');
                 recentErrands.innerHTML = '';
                 
-                snapshot.forEach(doc => {
-                    const errand = doc.data();
-                    const errandCard = createErrandCard(errand, doc.id);
-                    recentErrands.appendChild(errandCard);
-                });
+                if (snapshot.empty) {
+                    recentErrands.innerHTML = `
+                        <div style="text-align: center; padding: 40px; background-color: white; border-radius: var(--radius);">
+                            <i class="fas fa-tasks" style="font-size: 48px; color: var(--medium-gray); margin-bottom: 20px;"></i>
+                            <h3>No errands yet</h3>
+                            <p>Post your first errand to get started!</p>
+                        </div>
+                    `;
+                } else {
+                    snapshot.forEach(doc => {
+                        const errand = doc.data();
+                        const errandCard = createErrandCard(errand, doc.id);
+                        recentErrands.appendChild(errandCard);
+                    });
+                }
                 
                 // Update stats
                 const activeCount = await getActiveErrandsCount();
                 const totalSpent = await getTotalSpent();
                 
                 document.getElementById('activeErrandsCount').textContent = activeCount;
-                document.getElementById('totalSpent').textContent = `$${totalSpent.toFixed(2)}`;
+                document.getElementById('totalSpent').textContent = `KSH ${totalSpent.toFixed(2)}`;
                 document.getElementById('clientRating').textContent = userData.rating?.toFixed(1) || '5.0';
-                document.getElementById('walletBalance').textContent = `$${(userData.walletBalance || 0).toFixed(2)}`;
+                document.getElementById('walletBalance').textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
                 
             } catch (error) {
                 console.error('Load dashboard error:', error);
@@ -1803,7 +2237,7 @@
             card.innerHTML = `
                 <div class="errand-header">
                     <span class="errand-type">${errand.errandType}</span>
-                    <span class="errand-budget">$${errand.budget?.toFixed(2)}</span>
+                    <span class="errand-budget">KSH ${errand.budget?.toFixed(2)}</span>
                 </div>
                 <div class="errand-body">
                     <h3 class="errand-title">${errand.description.substring(0, 60)}${errand.description.length > 60 ? '...' : ''}</h3>
@@ -1865,8 +2299,8 @@
             const amount = parseFloat(document.getElementById('addFundsAmount').value);
             const method = document.getElementById('paymentMethod').value;
             
-            if (!amount || amount < 10) {
-                showToast('Minimum amount is $10', 'error');
+            if (!amount || amount < 1000) {
+                showToast('Minimum amount is KSH 1000', 'error');
                 return;
             }
             
@@ -1894,7 +2328,7 @@
                 userData.walletBalance = newBalance;
                 updateUserUI();
                 
-                showToast(`Successfully added $${amount.toFixed(2)} to your wallet!`, 'success');
+                showToast(`Successfully added KSH ${amount.toFixed(2)} to your wallet!`, 'success');
                 closeModal('addFundsModal');
             } catch (error) {
                 console.error('Payment error:', error);
@@ -1989,16 +2423,7 @@
             appContainer.style.display = 'none';
             currentUser = null;
             userData = {};
-        }
-
-        function updateUserUI() {
-            document.getElementById('userName').textContent = userData.name || 'User';
-            document.getElementById('userEmail').textContent = userData.email || '';
-            document.getElementById('walletBalance').textContent = `$${(userData.walletBalance || 0).toFixed(2)}`;
-            
-            if (userData.photoURL) {
-                document.getElementById('userAvatar').src = userData.photoURL;
-            }
+            isNewUser = false;
         }
 
         function refreshDashboard() {

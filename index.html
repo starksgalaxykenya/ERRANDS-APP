@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ERRANDS - Task & Delivery Service</title>
     
-    <!-- CORRECT Firebase SDKs (Compat version for browser) -->
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
@@ -18,6 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     
     <style>
+        /* All CSS styles remain the same as before */
         :root {
             --lime-green: #32cd32;
             --light-blue: #00bfff;
@@ -746,6 +747,16 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        .error-message {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 15px;
+            border-radius: var(--radius);
+            margin: 20px 0;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -781,15 +792,16 @@
                 <div style="text-align: center; margin: 20px 0; color: #666;">or</div>
                 <div class="form-group">
                     <label class="form-label">Email Address</label>
-                    <input type="email" id="email" class="form-control" placeholder="Enter your email">
+                    <input type="email" id="email" class="form-control" placeholder="Enter your email" value="test@example.com">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Password</label>
-                    <input type="password" id="password" class="form-control" placeholder="Enter your password">
+                    <input type="password" id="password" class="form-control" placeholder="Enter your password" value="password123">
                 </div>
-                <button id="emailLoginBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 15px;">Sign In</button>
+                <button id="emailLoginBtn" class="btn btn-primary" style="width: 100%; margin-bottom: 15px;">Sign In / Sign Up</button>
+                <div id="loginStatus" class="error-message" style="display: none;"></div>
                 <div style="text-align: center;">
-                    <a href="#" id="signupLink" style="color: var(--lime-green); text-decoration: none; font-weight: 500;">Don't have an account? Sign up</a>
+                    <a href="#" id="signupLink" style="color: var(--lime-green); text-decoration: none; font-weight: 500;">Demo: Use test credentials above</a>
                 </div>
             </div>
         </div>
@@ -831,12 +843,6 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="#" class="nav-link" data-page="disputes">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span>Disputes</span>
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a href="#" class="nav-link" data-page="profile">
                         <i class="fas fa-user-circle"></i>
                         <span>Profile</span>
@@ -846,6 +852,12 @@
                     <a href="#" class="nav-link" data-page="wallet">
                         <i class="fas fa-wallet"></i>
                         <span>Wallet</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Logout</span>
                     </a>
                 </li>
             </ul>
@@ -870,6 +882,8 @@
                         </button>
                     </div>
                 </div>
+                
+                <div id="dashboardError" class="error-message" style="display: none;"></div>
                 
                 <div class="stats-cards">
                     <div class="stat-card">
@@ -910,7 +924,11 @@
                     <div>
                         <h2 style="margin-bottom: 20px; font-family: 'Poppins', sans-serif;">Recent Errands</h2>
                         <div id="recentErrands" class="errands-list">
-                            <!-- Recent errands will be loaded here -->
+                            <div style="text-align: center; padding: 40px; background-color: white; border-radius: var(--radius);">
+                                <i class="fas fa-tasks" style="font-size: 48px; color: var(--medium-gray); margin-bottom: 20px;"></i>
+                                <h3>No errands yet</h3>
+                                <p>Post your first errand to get started!</p>
+                            </div>
                         </div>
                     </div>
                     <div>
@@ -929,7 +947,10 @@
                         
                         <h2 style="margin-bottom: 20px; margin-top: 30px; font-family: 'Poppins', sans-serif;">Available Runners</h2>
                         <div id="availableRunners" style="background-color: white; border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow);">
-                            <!-- Available runners will be loaded here -->
+                            <div style="text-align: center; color: #666;">
+                                <i class="fas fa-running" style="font-size: 24px; margin-bottom: 10px;"></i>
+                                <p>Runners will appear here when you post an errand</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -943,6 +964,8 @@
                         <i class="fas fa-arrow-left"></i> Back
                     </button>
                 </div>
+                
+                <div id="postErrandError" class="error-message" style="display: none;"></div>
                 
                 <div class="form-container">
                     <form id="errandForm">
@@ -1011,11 +1034,11 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">4. Town</label>
-                                <input type="text" id="errandTown" class="form-control" placeholder="Enter town">
+                                <input type="text" id="errandTown" class="form-control" placeholder="Enter town" value="Nairobi">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Area</label>
-                                <input type="text" id="errandArea" class="form-control" placeholder="Enter area/neighborhood">
+                                <input type="text" id="errandArea" class="form-control" placeholder="Enter area/neighborhood" value="Westlands">
                             </div>
                         </div>
                         
@@ -1042,10 +1065,10 @@
                             <label class="form-label">7. Budget (Maximum you're willing to pay)</label>
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="font-size: 24px;">$</span>
-                                <input type="number" id="errandBudget" class="form-control" min="5" step="0.01" placeholder="Enter amount" style="flex: 1;">
+                                <input type="number" id="errandBudget" class="form-control" min="5" step="0.01" placeholder="Enter amount" value="50" style="flex: 1;">
                             </div>
                             <div style="margin-top: 10px; font-size: 14px; color: #666;">
-                                Note: A 20% service fee ($<span id="serviceFee">0.00</span>) will be deducted. Runner receives $<span id="runnerReceives">0.00</span>
+                                Note: A 20% service fee ($<span id="serviceFee">10.00</span>) will be deducted. Runner receives $<span id="runnerReceives">40.00</span>
                             </div>
                         </div>
                         
@@ -1079,6 +1102,8 @@
                     </button>
                 </div>
                 
+                <div id="errandsError" class="error-message" style="display: none;"></div>
+                
                 <div style="margin-bottom: 20px;">
                     <div class="btn-group" style="display: flex; gap: 10px;">
                         <button class="btn btn-outline active" data-filter="all">All Errands</button>
@@ -1094,47 +1119,6 @@
                 </div>
             </div>
 
-            <!-- Messages Page -->
-            <div id="messagesPage" class="page">
-                <div class="header">
-                    <h1 class="page-title">Messages</h1>
-                    <button class="btn btn-primary" id="newMessageBtn">
-                        <i class="fas fa-plus"></i> New Message
-                    </button>
-                </div>
-                
-                <div class="chat-container">
-                    <div class="chat-sidebar">
-                        <div style="padding: 20px; border-bottom: 1px solid var(--medium-gray);">
-                            <input type="text" class="form-control" placeholder="Search conversations...">
-                        </div>
-                        <div id="conversationsList">
-                            <!-- Conversations will be loaded here -->
-                        </div>
-                    </div>
-                    <div class="chat-main">
-                        <div class="chat-header">
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                <img src="https://ui-avatars.com/api/?name=Runner&background=00bfff&color=fff" alt="Runner" style="width: 40px; height: 40px; border-radius: 50%;">
-                                <div>
-                                    <h3 style="font-size: 18px; margin-bottom: 5px;">Select a conversation</h3>
-                                    <p style="font-size: 14px; color: #666;">Click on a conversation to start chatting</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="chat-messages" id="chatMessages">
-                            <!-- Messages will be displayed here -->
-                        </div>
-                        <div class="chat-input">
-                            <input type="text" class="form-control" id="messageInput" placeholder="Type your message..." disabled>
-                            <button class="btn btn-primary" id="sendMessageBtn" disabled>
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Profile Page -->
             <div id="profilePage" class="page">
                 <div class="header">
@@ -1143,6 +1127,8 @@
                         <i class="fas fa-edit"></i> Edit Profile
                     </button>
                 </div>
+                
+                <div id="profileError" class="error-message" style="display: none;"></div>
                 
                 <div class="form-container">
                     <div style="text-align: center; margin-bottom: 30px;">
@@ -1168,22 +1154,22 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Phone Number</label>
-                            <input type="tel" id="profilePhone" class="form-control">
+                            <input type="tel" id="profilePhone" class="form-control" value="+254712345678">
                         </div>
                         <div class="form-group">
                             <label class="form-label">ID Number</label>
-                            <input type="text" id="profileId" class="form-control">
+                            <input type="text" id="profileId" class="form-control" value="12345678">
                         </div>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Town</label>
-                            <input type="text" id="profileTown" class="form-control">
+                            <input type="text" id="profileTown" class="form-control" value="Nairobi">
                         </div>
                         <div class="form-group">
                             <label class="form-label">County</label>
-                            <input type="text" id="profileCounty" class="form-control">
+                            <input type="text" id="profileCounty" class="form-control" value="Nairobi County">
                         </div>
                     </div>
                     
@@ -1207,7 +1193,7 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Amount to Add ($)</label>
-                    <input type="number" id="addFundsAmount" class="form-control" min="10" step="5" placeholder="Enter amount">
+                    <input type="number" id="addFundsAmount" class="form-control" min="10" step="5" placeholder="Enter amount" value="100">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Payment Method</label>
@@ -1232,7 +1218,7 @@
     </div>
 
     <!-- Loading Spinner -->
-    <div id="loadingSpinner" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.9); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+    <div id="loadingSpinner" class="loading-spinner" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.9); z-index: 9999; display: flex; align-items: center; justify-content: center;">
         <div class="spinner"></div>
     </div>
 
@@ -1248,10 +1234,25 @@
         };
 
         // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const storage = firebase.storage();
+        let auth, db, storage;
+        
+        try {
+            // Check if Firebase is loaded
+            if (typeof firebase === 'undefined') {
+                throw new Error('Firebase SDK not loaded. Check your internet connection.');
+            }
+            
+            // Initialize Firebase
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            db = firebase.firestore();
+            storage = firebase.storage();
+            
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            showLoginError('Firebase initialization failed: ' + error.message);
+        }
 
         // Global Variables
         let currentUser = null;
@@ -1271,8 +1272,15 @@
             // Initialize event listeners
             initEventListeners();
             
+            // Check if Firebase is initialized
+            if (!auth) {
+                showLoginError('Firebase not initialized. Please refresh the page.');
+                return;
+            }
+            
             // Check authentication state
             auth.onAuthStateChanged(user => {
+                console.log('Auth state changed:', user ? 'User logged in' : 'No user');
                 if (user) {
                     currentUser = user;
                     loadUserData();
@@ -1283,7 +1291,12 @@
             });
             
             // Initialize service fee calculation
-            document.getElementById('errandBudget').addEventListener('input', calculateServiceFee);
+            const budgetInput = document.getElementById('errandBudget');
+            if (budgetInput) {
+                budgetInput.addEventListener('input', calculateServiceFee);
+                // Calculate initial fee
+                calculateServiceFee();
+            }
             
             // Initialize travel required toggle
             document.querySelectorAll('input[name="travelRequired"]').forEach(radio => {
@@ -1297,32 +1310,51 @@
         // Event Listeners
         function initEventListeners() {
             // Login buttons
-            document.getElementById('googleLoginBtn').addEventListener('click', signInWithGoogle);
-            document.getElementById('emailLoginBtn').addEventListener('click', signInWithEmail);
-            document.getElementById('signupLink').addEventListener('click', showSignup);
+            const googleLoginBtn = document.getElementById('googleLoginBtn');
+            const emailLoginBtn = document.getElementById('emailLoginBtn');
+            const signupLink = document.getElementById('signupLink');
+            
+            if (googleLoginBtn) googleLoginBtn.addEventListener('click', signInWithGoogle);
+            if (emailLoginBtn) emailLoginBtn.addEventListener('click', signInWithEmail);
+            if (signupLink) signupLink.addEventListener('click', showSignup);
             
             // Navigation
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
                     const page = this.getAttribute('data-page');
-                    showPage(page);
-                    
-                    // Update active state
-                    navLinks.forEach(l => l.classList.remove('active'));
-                    this.classList.add('active');
+                    if (page === 'logout') {
+                        logout();
+                    } else {
+                        showPage(page);
+                        
+                        // Update active state
+                        navLinks.forEach(l => l.classList.remove('active'));
+                        this.classList.add('active');
+                    }
                 });
             });
             
             // Buttons
-            document.getElementById('refreshBtn').addEventListener('click', refreshDashboard);
-            document.getElementById('quickPostBtn').addEventListener('click', () => showPage('postErrand'));
-            document.getElementById('addFundsBtn').addEventListener('click', () => showModal('addFundsModal'));
-            document.getElementById('submitErrandBtn').addEventListener('click', submitErrand);
-            document.getElementById('saveProfileBtn').addEventListener('click', saveProfile);
-            document.getElementById('changePhotoBtn').addEventListener('click', changeProfilePhoto);
-            document.getElementById('confirmAddFunds').addEventListener('click', processPayment);
-            document.getElementById('useCurrentLocation').addEventListener('change', getCurrentLocation);
+            const refreshBtn = document.getElementById('refreshBtn');
+            const quickPostBtn = document.getElementById('quickPostBtn');
+            const addFundsBtn = document.getElementById('addFundsBtn');
+            const submitErrandBtn = document.getElementById('submitErrandBtn');
+            const saveProfileBtn = document.getElementById('saveProfileBtn');
+            const changePhotoBtn = document.getElementById('changePhotoBtn');
+            const confirmAddFunds = document.getElementById('confirmAddFunds');
+            const useCurrentLocation = document.getElementById('useCurrentLocation');
+            const logoutBtn = document.getElementById('logoutBtn');
+            
+            if (refreshBtn) refreshBtn.addEventListener('click', refreshDashboard);
+            if (quickPostBtn) quickPostBtn.addEventListener('click', () => showPage('postErrand'));
+            if (addFundsBtn) addFundsBtn.addEventListener('click', () => showModal('addFundsModal'));
+            if (submitErrandBtn) submitErrandBtn.addEventListener('click', submitErrand);
+            if (saveProfileBtn) saveProfileBtn.addEventListener('click', saveProfile);
+            if (changePhotoBtn) changePhotoBtn.addEventListener('click', changeProfilePhoto);
+            if (confirmAddFunds) confirmAddFunds.addEventListener('click', processPayment);
+            if (useCurrentLocation) useCurrentLocation.addEventListener('change', getCurrentLocation);
+            if (logoutBtn) logoutBtn.addEventListener('click', logout);
             
             // My Errands filter
             document.querySelectorAll('.btn-group .btn').forEach(btn => {
@@ -1340,9 +1372,10 @@
             try {
                 const provider = new firebase.auth.GoogleAuthProvider();
                 await auth.signInWithPopup(provider);
-                showToast('Successfully signed in!', 'success');
+                showToast('Successfully signed in with Google!', 'success');
             } catch (error) {
-                showToast('Error signing in: ' + error.message, 'error');
+                console.error('Google sign in error:', error);
+                showLoginError('Error signing in with Google: ' + error.message);
             } finally {
                 hideLoading();
             }
@@ -1353,7 +1386,7 @@
             const password = document.getElementById('password').value;
             
             if (!email || !password) {
-                showToast('Please enter email and password', 'error');
+                showLoginError('Please enter email and password');
                 return;
             }
             
@@ -1362,11 +1395,12 @@
                 await auth.signInWithEmailAndPassword(email, password);
                 showToast('Successfully signed in!', 'success');
             } catch (error) {
+                console.error('Email sign in error:', error);
                 // If user doesn't exist, create new account
                 if (error.code === 'auth/user-not-found') {
                     await createUserWithEmail(email, password);
                 } else {
-                    showToast('Error: ' + error.message, 'error');
+                    showLoginError('Error: ' + error.message);
                 }
             } finally {
                 hideLoading();
@@ -1381,19 +1415,44 @@
                     email: email,
                     name: email.split('@')[0],
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    userType: 'client'
+                    userType: 'client',
+                    walletBalance: 100, // Give new users $100 for testing
+                    rating: 5.0,
+                    totalErrands: 0,
+                    totalSpent: 0,
+                    phone: '+254712345678',
+                    town: 'Nairobi',
+                    county: 'Nairobi County'
                 });
-                showToast('Account created successfully!', 'success');
+                showToast('Account created successfully! You have $100 in your wallet.', 'success');
             } catch (error) {
-                showToast('Error creating account: ' + error.message, 'error');
+                console.error('Create user error:', error);
+                showLoginError('Error creating account: ' + error.message);
+            }
+        }
+
+        async function logout() {
+            try {
+                await auth.signOut();
+                showToast('Successfully logged out!', 'success');
+                showLogin();
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('Error logging out: ' + error.message, 'error');
             }
         }
 
         function showSignup(e) {
-            e.preventDefault();
-            document.getElementById('emailLoginBtn').textContent = 'Sign Up';
-            document.getElementById('signupLink').innerHTML = 'Already have an account? Sign in';
-            showToast('Enter your details to create a new account', 'info');
+            if (e) e.preventDefault();
+            showLoginError('Use the test credentials above for demo');
+        }
+
+        function showLoginError(message) {
+            const loginStatus = document.getElementById('loginStatus');
+            if (loginStatus) {
+                loginStatus.textContent = message;
+                loginStatus.style.display = 'block';
+            }
         }
 
         // User Data Functions
@@ -1427,6 +1486,8 @@
                     loadUserErrands();
                     // Load dashboard data
                     loadDashboardData();
+                    
+                    showToast('Welcome back, ' + (userData.name || 'User') + '!', 'success');
                 } else {
                     // Create user document if it doesn't exist
                     await db.collection('users').doc(currentUser.uid).set({
@@ -1434,7 +1495,7 @@
                         name: currentUser.displayName || currentUser.email.split('@')[0],
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                         userType: 'client',
-                        walletBalance: 0,
+                        walletBalance: 100,
                         rating: 5.0,
                         totalErrands: 0,
                         totalSpent: 0
@@ -1443,15 +1504,16 @@
                     userData = {
                         email: currentUser.email,
                         name: currentUser.displayName || currentUser.email.split('@')[0],
-                        walletBalance: 0,
+                        walletBalance: 100,
                         rating: 5.0
                     };
                     
                     updateUserUI();
+                    showToast('Welcome to ERRANDS! You have $100 in your wallet.', 'success');
                 }
             } catch (error) {
                 console.error('Error loading user data:', error);
-                showToast('Error loading user data', 'error');
+                showToast('Error loading user data: ' + error.message, 'error');
             } finally {
                 hideLoading();
             }
@@ -1479,6 +1541,7 @@
                 
                 showToast('Profile updated successfully!', 'success');
             } catch (error) {
+                console.error('Save profile error:', error);
                 showToast('Error updating profile: ' + error.message, 'error');
             } finally {
                 hideLoading();
@@ -1514,6 +1577,7 @@
                     
                     showToast('Profile photo updated!', 'success');
                 } catch (error) {
+                    console.error('Photo upload error:', error);
                     showToast('Error uploading photo: ' + error.message, 'error');
                 } finally {
                     hideLoading();
@@ -1554,7 +1618,7 @@
                 return;
             }
             
-            if (userData.walletBalance < budget) {
+            if ((userData.walletBalance || 0) < budget) {
                 showToast('Insufficient wallet balance. Please add funds.', 'error');
                 showModal('addFundsModal');
                 return;
@@ -1585,7 +1649,7 @@
                 };
                 
                 // Deduct from wallet
-                const newBalance = userData.walletBalance - budget;
+                const newBalance = (userData.walletBalance || 0) - budget;
                 await db.collection('users').doc(currentUser.uid).update({
                     walletBalance: newBalance
                 });
@@ -1619,7 +1683,11 @@
                 document.getElementById('errandForm').reset();
                 document.getElementById('travelDetails').style.display = 'none';
                 calculateServiceFee();
+                
+                // Reload errands
+                loadUserErrands();
             } catch (error) {
+                console.error('Submit errand error:', error);
                 showToast('Error posting errand: ' + error.message, 'error');
             } finally {
                 hideLoading();
@@ -1657,7 +1725,8 @@
                     errandsList.appendChild(errandCard);
                 });
             } catch (error) {
-                console.error('Error loading errands:', error);
+                console.error('Load errands error:', error);
+                showToast('Error loading errands: ' + error.message, 'error');
             }
         }
 
@@ -1680,17 +1749,17 @@
                 });
                 
                 // Update stats
-                const totalErrands = await getTotalErrands();
+                const activeCount = await getActiveErrandsCount();
                 const totalSpent = await getTotalSpent();
                 
-                document.getElementById('activeErrandsCount').textContent = 
-                    await getActiveErrandsCount();
+                document.getElementById('activeErrandsCount').textContent = activeCount;
                 document.getElementById('totalSpent').textContent = `$${totalSpent.toFixed(2)}`;
                 document.getElementById('clientRating').textContent = userData.rating?.toFixed(1) || '5.0';
-                document.getElementById('walletBalance').textContent = `$${userData.walletBalance?.toFixed(2) || '0.00'}`;
+                document.getElementById('walletBalance').textContent = `$${(userData.walletBalance || 0).toFixed(2)}`;
                 
             } catch (error) {
-                console.error('Error loading dashboard data:', error);
+                console.error('Load dashboard error:', error);
+                showToast('Error loading dashboard: ' + error.message, 'error');
             }
         }
 
@@ -1729,6 +1798,7 @@
             card.dataset.status = errand.status;
             
             const statusClass = `status-${errand.status}`;
+            const date = errand.createdAt ? errand.createdAt.toDate().toLocaleDateString() : 'Recent';
             
             card.innerHTML = `
                 <div class="errand-header">
@@ -1755,6 +1825,10 @@
                             <span>${errand.runnerNeeds}</span>
                         </div>
                         ` : ''}
+                        <div class="errand-detail">
+                            <i class="fas fa-calendar"></i>
+                            <span>${date}</span>
+                        </div>
                     </div>
                 </div>
                 <div class="errand-footer">
@@ -1823,6 +1897,7 @@
                 showToast(`Successfully added $${amount.toFixed(2)} to your wallet!`, 'success');
                 closeModal('addFundsModal');
             } catch (error) {
+                console.error('Payment error:', error);
                 showToast('Payment failed: ' + error.message, 'error');
             } finally {
                 hideLoading();
@@ -1856,15 +1931,24 @@
         // UI Helper Functions
         function showPage(pageId) {
             pages.forEach(page => page.classList.remove('active'));
-            document.getElementById(`${pageId}Page`).classList.add('active');
+            const pageElement = document.getElementById(`${pageId}Page`);
+            if (pageElement) {
+                pageElement.classList.add('active');
+            }
         }
 
         function showModal(modalId) {
-            document.getElementById(modalId).classList.add('active');
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('active');
+            }
         }
 
         function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('active');
+            }
         }
 
         function showToast(message, type = 'info') {
@@ -1903,12 +1987,14 @@
         function showLogin() {
             loginPage.style.display = 'flex';
             appContainer.style.display = 'none';
+            currentUser = null;
+            userData = {};
         }
 
         function updateUserUI() {
             document.getElementById('userName').textContent = userData.name || 'User';
             document.getElementById('userEmail').textContent = userData.email || '';
-            document.getElementById('walletBalance').textContent = `$${userData.walletBalance?.toFixed(2) || '0.00'}`;
+            document.getElementById('walletBalance').textContent = `$${(userData.walletBalance || 0).toFixed(2)}`;
             
             if (userData.photoURL) {
                 document.getElementById('userAvatar').src = userData.photoURL;
@@ -1934,6 +2020,21 @@
             if (e.target.classList.contains('modal')) {
                 e.target.classList.remove('active');
             }
+        });
+
+        // Initialize with demo data
+        window.addEventListener('load', function() {
+            // Set demo credentials
+            document.getElementById('email').value = 'test@example.com';
+            document.getElementById('password').value = 'password123';
+            
+            // Auto-login for demo (remove in production)
+            setTimeout(() => {
+                if (!currentUser && auth) {
+                    // Try to sign in with demo credentials
+                    signInWithEmail();
+                }
+            }, 1000);
         });
     </script>
 </body>

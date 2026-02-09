@@ -15,26 +15,30 @@ const profileUpdateModal = document.getElementById('profileUpdateModal');
 
 // Initialize the App
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize event listeners
-    initEventListeners();
-    
-    // Check if Firebase is initialized
-    if (!auth) {
-        showLoginError('Firebase not initialized. Please refresh the page.');
-        return;
-    }
-    
-    // Check authentication state
-    auth.onAuthStateChanged(user => {
-        console.log('Auth state changed:', user ? 'User logged in' : 'No user');
-        if (user) {
-            currentUser = user;
-            loadUserData();
-            showApp();
-        } else {
-            showLogin();
+    // Wait a moment for Firebase to initialize
+    setTimeout(() => {
+        // Initialize event listeners
+        initEventListeners();
+        
+        // Check if Firebase auth is initialized
+        if (typeof auth === 'undefined' || !auth) {
+            console.error('Firebase auth not initialized');
+            showLoginError('Firebase not initialized. Please refresh the page.');
+            return;
         }
-    });
+        
+        // Check authentication state
+        auth.onAuthStateChanged(user => {
+            console.log('Auth state changed:', user ? 'User logged in' : 'No user');
+            if (user) {
+                currentUser = user;
+                loadUserData();
+                showApp();
+            } else {
+                showLogin();
+            }
+        });
+    }, 500); // Give Firebase time to initialize
     
     // Initialize service fee calculation
     const budgetInput = document.getElementById('errandBudget');
@@ -45,12 +49,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Initialize travel required toggle
-    document.querySelectorAll('input[name="travelRequired"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            document.getElementById('travelDetails').style.display = 
-                this.value === 'yes' ? 'block' : 'none';
+    const travelRadios = document.querySelectorAll('input[name="travelRequired"]');
+    if (travelRadios.length > 0) {
+        travelRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                const travelDetails = document.getElementById('travelDetails');
+                if (travelDetails) {
+                    travelDetails.style.display = 
+                        this.value === 'yes' ? 'block' : 'none';
+                }
+            });
         });
-    });
+    }
     
     // Initialize modern errand type selector
     initializeErrandTypeSelector();
@@ -111,19 +121,27 @@ function initEventListeners() {
     });
     
     // My Errands filter
-    document.querySelectorAll('.btn-group .btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            filterErrands(this.getAttribute('data-filter'));
+    const filterButtons = document.querySelectorAll('.btn-group .btn');
+    if (filterButtons.length > 0) {
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const filter = this.getAttribute('data-filter');
+                if (filter) {
+                    filterErrands(filter);
+                }
+            });
         });
-    });
+    }
 }
 
 function initializeErrandTypeSelector() {
     const options = document.querySelectorAll('.errand-type-option');
     const customInput = document.getElementById('customErrandType');
     const hiddenInput = document.getElementById('selectedErrandType');
+    
+    if (options.length === 0) return;
     
     options.forEach(option => {
         option.addEventListener('click', function() {
@@ -135,25 +153,27 @@ function initializeErrandTypeSelector() {
             
             // Set the value
             const value = this.getAttribute('data-value');
-            hiddenInput.value = value;
+            if (hiddenInput) hiddenInput.value = value;
             
             // Clear custom input
-            customInput.value = '';
+            if (customInput) customInput.value = '';
         });
     });
     
     // When custom input is used, clear selection
-    customInput.addEventListener('input', function() {
-        options.forEach(opt => opt.classList.remove('selected'));
-        hiddenInput.value = this.value || '';
-    });
-    
-    // When custom input loses focus, if it has value, set it
-    customInput.addEventListener('blur', function() {
-        if (this.value) {
-            hiddenInput.value = this.value;
-        }
-    });
+    if (customInput) {
+        customInput.addEventListener('input', function() {
+            options.forEach(opt => opt.classList.remove('selected'));
+            if (hiddenInput) hiddenInput.value = this.value || '';
+        });
+        
+        // When custom input loses focus, if it has value, set it
+        customInput.addEventListener('blur', function() {
+            if (this.value && hiddenInput) {
+                hiddenInput.value = this.value;
+            }
+        });
+    }
 }
 
 // Support Functions
@@ -173,6 +193,11 @@ function whatsappSupport() {
 
 // Authentication Functions
 async function signInWithGoogle() {
+    if (typeof firebase === 'undefined') {
+        showLoginError('Firebase not loaded. Please refresh the page.');
+        return;
+    }
+    
     showLoading();
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
@@ -187,6 +212,11 @@ async function signInWithGoogle() {
 }
 
 async function signInWithEmail() {
+    if (typeof auth === 'undefined') {
+        showLoginError('Firebase not initialized. Please refresh the page.');
+        return;
+    }
+    
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     
@@ -261,7 +291,7 @@ function showLoginError(message) {
 
 // User Data Functions
 async function loadUserData() {
-    if (!currentUser) return;
+    if (!currentUser || !db) return;
     
     showLoading();
     try {
@@ -338,26 +368,42 @@ async function loadUserData() {
 }
 
 function updateUserUI() {
-    document.getElementById('userName').textContent = userData.name || 'User';
-    document.getElementById('userEmail').textContent = userData.email || currentUser.email;
+    const userName = document.getElementById('userName');
+    const userEmail = document.getElementById('userEmail');
+    const profileName = document.getElementById('profileName');
+    const profileEmail = document.getElementById('profileEmail');
+    const profilePhone = document.getElementById('profilePhone');
+    const profileId = document.getElementById('profileId');
+    const profileTown = document.getElementById('profileTown');
+    const profileCounty = document.getElementById('profileCounty');
+    const walletBalance = document.getElementById('walletBalance');
     
-    document.getElementById('profileName').value = userData.name || '';
-    document.getElementById('profileEmail').value = userData.email || currentUser.email;
-    document.getElementById('profilePhone').value = userData.phone || '';
-    document.getElementById('profileId').value = userData.idNumber || '';
-    document.getElementById('profileTown').value = userData.town || '';
-    document.getElementById('profileCounty').value = userData.county || '';
+    if (userName) userName.textContent = userData.name || 'User';
+    if (userEmail) userEmail.textContent = userData.email || (currentUser ? currentUser.email : '...');
+    
+    if (profileName) profileName.value = userData.name || '';
+    if (profileEmail) profileEmail.value = userData.email || (currentUser ? currentUser.email : '');
+    if (profilePhone) profilePhone.value = userData.phone || '';
+    if (profileId) profileId.value = userData.idNumber || '';
+    if (profileTown) profileTown.value = userData.town || '';
+    if (profileCounty) profileCounty.value = userData.county || '';
     
     if (userData.photoURL) {
-        document.getElementById('userAvatar').src = userData.photoURL;
-        document.getElementById('profilePhoto').src = userData.photoURL;
+        const userAvatar = document.getElementById('userAvatar');
+        const profilePhoto = document.getElementById('profilePhoto');
+        if (userAvatar) userAvatar.src = userData.photoURL;
+        if (profilePhoto) profilePhoto.src = userData.photoURL;
     }
     
     // Update wallet balance display
-    document.getElementById('walletBalance').textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
+    if (walletBalance) {
+        walletBalance.textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
+    }
 }
 
 async function saveProfile() {
+    if (!currentUser || !db) return;
+    
     showLoading();
     try {
         const updates = {
@@ -394,6 +440,8 @@ async function saveProfile() {
 }
 
 async function changeProfilePhoto() {
+    if (!currentUser || !storage) return;
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -416,8 +464,10 @@ async function changeProfilePhoto() {
             });
             
             // Update UI
-            document.getElementById('userAvatar').src = photoURL;
-            document.getElementById('profilePhoto').src = photoURL;
+            const userAvatar = document.getElementById('userAvatar');
+            const profilePhoto = document.getElementById('profilePhoto');
+            if (userAvatar) userAvatar.src = photoURL;
+            if (profilePhoto) profilePhoto.src = photoURL;
             userData.photoURL = photoURL;
             
             showToast('Profile photo updated!', 'success');
@@ -434,43 +484,60 @@ async function changeProfilePhoto() {
 
 // Errand Functions
 function calculateServiceFee() {
-    const budget = parseFloat(document.getElementById('errandBudget').value) || 0;
+    const budgetInput = document.getElementById('errandBudget');
+    const serviceFeeElement = document.getElementById('serviceFee');
+    const runnerReceivesElement = document.getElementById('runnerReceives');
+    
+    if (!budgetInput || !serviceFeeElement || !runnerReceivesElement) return;
+    
+    const budget = parseFloat(budgetInput.value) || 0;
     const serviceFee = budget * 0.20;
     const runnerReceives = budget - serviceFee;
     
-    document.getElementById('serviceFee').textContent = serviceFee.toFixed(2);
-    document.getElementById('runnerReceives').textContent = runnerReceives.toFixed(2);
+    serviceFeeElement.textContent = serviceFee.toFixed(2);
+    runnerReceivesElement.textContent = runnerReceives.toFixed(2);
 }
 
 async function submitErrand() {
+    if (!currentUser || !db) {
+        showToast('Please login first', 'error');
+        return;
+    }
+    
     // Get selected errand type
-    const selectedType = document.getElementById('selectedErrandType').value;
-    const customType = document.getElementById('customErrandType').value;
-    const errandType = customType || selectedType;
+    const selectedType = document.getElementById('selectedErrandType');
+    const customType = document.getElementById('customErrandType');
+    const errandType = (customType && customType.value) || (selectedType ? selectedType.value : '');
     
     if (!errandType) {
         showToast('Please select or enter an errand type', 'error');
         return;
     }
     
-    const description = document.getElementById('errandDescription').value;
-    const travelRequired = document.querySelector('input[name="travelRequired"]:checked').value;
-    const travelFrom = travelRequired === 'yes' ? document.getElementById('travelFrom').value : '';
-    const travelTo = travelRequired === 'yes' ? document.getElementById('travelTo').value : '';
-    const town = document.getElementById('errandTown').value;
-    const area = document.getElementById('errandArea').value;
-    const runnerNeeds = document.getElementById('runnerNeeds').value;
-    const meetRequired = document.querySelector('input[name="meetRequired"]:checked').value;
-    const budget = parseFloat(document.getElementById('errandBudget').value);
-    const deadline = document.getElementById('errandDeadline').value;
-    const useLocation = document.getElementById('useCurrentLocation').checked;
+    const description = document.getElementById('errandDescription');
+    const travelRequired = document.querySelector('input[name="travelRequired"]:checked');
+    const travelFrom = document.getElementById('travelFrom');
+    const travelTo = document.getElementById('travelTo');
+    const town = document.getElementById('errandTown');
+    const area = document.getElementById('errandArea');
+    const runnerNeeds = document.getElementById('runnerNeeds');
+    const meetRequired = document.querySelector('input[name="meetRequired"]:checked');
+    const budget = document.getElementById('errandBudget');
+    const deadline = document.getElementById('errandDeadline');
+    const useLocation = document.getElementById('useCurrentLocation');
     
-    if (!description || !town || !area || !budget || budget < 500) {
+    if (!description || !town || !area || !budget || !travelRequired || !meetRequired) {
         showToast('Please fill all required fields with valid data. Minimum budget is KSH 500.', 'error');
         return;
     }
     
-    if ((userData.walletBalance || 0) < budget) {
+    const budgetValue = parseFloat(budget.value);
+    if (budgetValue < 500) {
+        showToast('Minimum budget is KSH 500.', 'error');
+        return;
+    }
+    
+    if ((userData.walletBalance || 0) < budgetValue) {
         showToast('Insufficient wallet balance. Please add funds.', 'error');
         showModal('addFundsModal');
         return;
@@ -480,28 +547,28 @@ async function submitErrand() {
     try {
         const errandData = {
             clientId: currentUser.uid,
-            clientName: userData.name,
+            clientName: userData.name || 'User',
             errandType: errandType,
-            description: description,
-            travelRequired: travelRequired === 'yes',
-            travelFrom: travelFrom,
-            travelTo: travelTo,
-            town: town,
-            area: area,
-            runnerNeeds: runnerNeeds,
-            meetRequired: meetRequired === 'yes',
-            budget: budget,
-            serviceFee: budget * 0.20,
-            runnerAmount: budget * 0.80,
-            deadline: deadline ? new Date(deadline) : null,
+            description: description.value,
+            travelRequired: travelRequired.value === 'yes',
+            travelFrom: travelRequired.value === 'yes' && travelFrom ? travelFrom.value : '',
+            travelTo: travelRequired.value === 'yes' && travelTo ? travelTo.value : '',
+            town: town.value,
+            area: area.value,
+            runnerNeeds: runnerNeeds ? runnerNeeds.value : '',
+            meetRequired: meetRequired.value === 'yes',
+            budget: budgetValue,
+            serviceFee: budgetValue * 0.20,
+            runnerAmount: budgetValue * 0.80,
+            deadline: deadline && deadline.value ? new Date(deadline.value) : null,
             status: 'pending',
             bids: [],
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            location: useLocation && userLocation ? userLocation : null
+            location: useLocation && useLocation.checked && userLocation ? userLocation : null
         };
         
         // Deduct from wallet
-        const newBalance = (userData.walletBalance || 0) - budget;
+        const newBalance = (userData.walletBalance || 0) - budgetValue;
         await db.collection('users').doc(currentUser.uid).update({
             walletBalance: newBalance
         });
@@ -513,7 +580,7 @@ async function submitErrand() {
         await db.collection('transactions').add({
             errandId: errandRef.id,
             clientId: currentUser.uid,
-            amount: budget,
+            amount: budgetValue,
             type: 'escrow_deposit',
             status: 'completed',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -532,10 +599,16 @@ async function submitErrand() {
         showPage('myErrands');
         
         // Reset form
-        document.getElementById('errandForm').reset();
-        document.getElementById('travelDetails').style.display = 'none';
-        document.querySelectorAll('.errand-type-option').forEach(opt => opt.classList.remove('selected'));
-        document.getElementById('selectedErrandType').value = '';
+        const errandForm = document.getElementById('errandForm');
+        if (errandForm) errandForm.reset();
+        
+        const travelDetails = document.getElementById('travelDetails');
+        if (travelDetails) travelDetails.style.display = 'none';
+        
+        const errandOptions = document.querySelectorAll('.errand-type-option');
+        errandOptions.forEach(opt => opt.classList.remove('selected'));
+        
+        if (selectedType) selectedType.value = '';
         calculateServiceFee();
         
         // Reload errands
@@ -549,6 +622,8 @@ async function submitErrand() {
 }
 
 async function loadUserErrands() {
+    if (!currentUser || !db) return;
+    
     try {
         const snapshot = await db.collection('errands')
             .where('clientId', '==', currentUser.uid)
@@ -557,6 +632,8 @@ async function loadUserErrands() {
             .get();
         
         const errandsList = document.getElementById('myErrandsList');
+        if (!errandsList) return;
+        
         errandsList.innerHTML = '';
         
         if (snapshot.empty) {
@@ -585,6 +662,8 @@ async function loadUserErrands() {
 }
 
 async function loadDashboardData() {
+    if (!currentUser || !db) return;
+    
     try {
         // Load recent errands
         const snapshot = await db.collection('errands')
@@ -594,32 +673,39 @@ async function loadDashboardData() {
             .get();
         
         const recentErrands = document.getElementById('recentErrands');
-        recentErrands.innerHTML = '';
-        
-        if (snapshot.empty) {
-            recentErrands.innerHTML = `
-                <div style="text-align: center; padding: 40px; background-color: white; border-radius: var(--radius);">
-                    <i class="fas fa-tasks" style="font-size: 48px; color: var(--medium-gray); margin-bottom: 20px;"></i>
-                    <h3>No errands yet</h3>
-                    <p>Post your first errand to get started!</p>
-                </div>
-            `;
-        } else {
-            snapshot.forEach(doc => {
-                const errand = doc.data();
-                const errandCard = createErrandCard(errand, doc.id);
-                recentErrands.appendChild(errandCard);
-            });
+        if (recentErrands) {
+            recentErrands.innerHTML = '';
+            
+            if (snapshot.empty) {
+                recentErrands.innerHTML = `
+                    <div style="text-align: center; padding: 40px; background-color: white; border-radius: var(--radius);">
+                        <i class="fas fa-tasks" style="font-size: 48px; color: var(--medium-gray); margin-bottom: 20px;"></i>
+                        <h3>No errands yet</h3>
+                        <p>Post your first errand to get started!</p>
+                    </div>
+                `;
+            } else {
+                snapshot.forEach(doc => {
+                    const errand = doc.data();
+                    const errandCard = createErrandCard(errand, doc.id);
+                    recentErrands.appendChild(errandCard);
+                });
+            }
         }
         
         // Update stats
         const activeCount = await getActiveErrandsCount();
         const totalSpent = await getTotalSpent();
         
-        document.getElementById('activeErrandsCount').textContent = activeCount;
-        document.getElementById('totalSpent').textContent = `KSH ${totalSpent.toFixed(2)}`;
-        document.getElementById('clientRating').textContent = userData.rating?.toFixed(1) || '5.0';
-        document.getElementById('walletBalance').textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
+        const activeErrandsCount = document.getElementById('activeErrandsCount');
+        const totalSpentElement = document.getElementById('totalSpent');
+        const clientRating = document.getElementById('clientRating');
+        const walletBalance = document.getElementById('walletBalance');
+        
+        if (activeErrandsCount) activeErrandsCount.textContent = activeCount;
+        if (totalSpentElement) totalSpentElement.textContent = `KSH ${totalSpent.toFixed(2)}`;
+        if (clientRating) clientRating.textContent = userData.rating?.toFixed(1) || '5.0';
+        if (walletBalance) walletBalance.textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
         
     } catch (error) {
         console.error('Load dashboard error:', error);
@@ -628,9 +714,14 @@ async function loadDashboardData() {
 }
 
 async function loadWalletData() {
+    if (!currentUser || !db) return;
+    
     try {
         // Update wallet page balance
-        document.getElementById('walletPageBalance').textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
+        const walletPageBalance = document.getElementById('walletPageBalance');
+        if (walletPageBalance) {
+            walletPageBalance.textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
+        }
         
         // Load transaction history
         const snapshot = await db.collection('transactions')
@@ -642,13 +733,15 @@ async function loadWalletData() {
         const transactionHistory = document.getElementById('transactionHistory');
         
         if (snapshot.empty) {
-            transactionHistory.innerHTML = `
-                <div style="text-align: center; padding: 40px; color: #666;">
-                    <i class="fas fa-exchange-alt" style="font-size: 48px; margin-bottom: 20px;"></i>
-                    <h3>No transactions yet</h3>
-                    <p>Your transaction history will appear here</p>
-                </div>
-            `;
+            if (transactionHistory) {
+                transactionHistory.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <i class="fas fa-exchange-alt" style="font-size: 48px; margin-bottom: 20px;"></i>
+                        <h3>No transactions yet</h3>
+                        <p>Your transaction history will appear here</p>
+                    </div>
+                `;
+            }
         } else {
             let totalDeposits = 0;
             let totalWithdrawals = 0;
@@ -679,11 +772,14 @@ async function loadWalletData() {
             });
             
             transactionsHtml += '</div>';
-            transactionHistory.innerHTML = transactionsHtml;
+            if (transactionHistory) transactionHistory.innerHTML = transactionsHtml;
             
             // Update totals
-            document.getElementById('totalDeposits').textContent = `KSH ${totalDeposits.toFixed(2)}`;
-            document.getElementById('totalWithdrawals').textContent = `KSH ${totalWithdrawals.toFixed(2)}`;
+            const totalDepositsElement = document.getElementById('totalDeposits');
+            const totalWithdrawalsElement = document.getElementById('totalWithdrawals');
+            
+            if (totalDepositsElement) totalDepositsElement.textContent = `KSH ${totalDeposits.toFixed(2)}`;
+            if (totalWithdrawalsElement) totalWithdrawalsElement.textContent = `KSH ${totalWithdrawals.toFixed(2)}`;
         }
     } catch (error) {
         console.error('Load wallet data error:', error);
@@ -691,6 +787,8 @@ async function loadWalletData() {
 }
 
 async function getTotalErrands() {
+    if (!currentUser || !db) return 0;
+    
     const snapshot = await db.collection('errands')
         .where('clientId', '==', currentUser.uid)
         .get();
@@ -698,6 +796,8 @@ async function getTotalErrands() {
 }
 
 async function getTotalSpent() {
+    if (!currentUser || !db) return 0;
+    
     const snapshot = await db.collection('errands')
         .where('clientId', '==', currentUser.uid)
         .where('status', '==', 'completed')
@@ -711,6 +811,8 @@ async function getTotalSpent() {
 }
 
 async function getActiveErrandsCount() {
+    if (!currentUser || !db) return 0;
+    
     const snapshot = await db.collection('errands')
         .where('clientId', '==', currentUser.uid)
         .where('status', 'in', ['pending', 'active'])
@@ -729,16 +831,16 @@ function createErrandCard(errand, id) {
     
     card.innerHTML = `
         <div class="errand-header">
-            <span class="errand-type">${errand.errandType}</span>
-            <span class="errand-budget">KSH ${errand.budget?.toFixed(2)}</span>
+            <span class="errand-type">${errand.errandType || 'Errand'}</span>
+            <span class="errand-budget">KSH ${(errand.budget || 0).toFixed(2)}</span>
         </div>
         <div class="errand-body">
-            <h3 class="errand-title">${errand.description.substring(0, 60)}${errand.description.length > 60 ? '...' : ''}</h3>
-            <p class="errand-desc">${errand.description}</p>
+            <h3 class="errand-title">${(errand.description || '').substring(0, 60)}${errand.description && errand.description.length > 60 ? '...' : ''}</h3>
+            <p class="errand-desc">${errand.description || ''}</p>
             <div class="errand-details">
                 <div class="errand-detail">
                     <i class="fas fa-map-marker-alt"></i>
-                    <span>${errand.town}, ${errand.area}</span>
+                    <span>${errand.town || ''}, ${errand.area || ''}</span>
                 </div>
                 ${errand.travelRequired ? `
                 <div class="errand-detail">
@@ -759,7 +861,7 @@ function createErrandCard(errand, id) {
             </div>
         </div>
         <div class="errand-footer">
-            <span class="errand-status ${statusClass}">${errand.status.toUpperCase()}</span>
+            <span class="errand-status ${statusClass}">${(errand.status || '').toUpperCase()}</span>
             <div>
                 ${errand.status === 'pending' ? `
                 <button class="btn btn-outline" onclick="viewBids('${id}')" style="padding: 5px 15px; font-size: 12px;">
@@ -789,6 +891,11 @@ function filterErrands(filter) {
 
 // Errand Details and Bids Functions
 async function viewErrandDetails(errandId) {
+    if (!db) {
+        showToast('Database not available', 'error');
+        return;
+    }
+    
     showLoading();
     try {
         const errandDoc = await db.collection('errands').doc(errandId).get();
@@ -803,23 +910,23 @@ async function viewErrandDetails(errandId) {
         
         const detailsHtml = `
             <div class="errand-details-section">
-                <h3>${errand.errandType}</h3>
-                <p style="color: #666; margin-top: 10px;">${errand.description}</p>
+                <h3>${errand.errandType || 'Errand'}</h3>
+                <p style="color: #666; margin-top: 10px;">${errand.description || ''}</p>
             </div>
             
             <div class="errand-details-section">
                 <h4>Budget Details</h4>
                 <div class="detail-row">
                     <div class="detail-label">Budget:</div>
-                    <div class="detail-value">KSH ${errand.budget?.toFixed(2)}</div>
+                    <div class="detail-value">KSH ${(errand.budget || 0).toFixed(2)}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Service Fee (20%):</div>
-                    <div class="detail-value">KSH ${errand.serviceFee?.toFixed(2)}</div>
+                    <div class="detail-value">KSH ${(errand.serviceFee || 0).toFixed(2)}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Runner Receives:</div>
-                    <div class="detail-value">KSH ${errand.runnerAmount?.toFixed(2)}</div>
+                    <div class="detail-value">KSH ${(errand.runnerAmount || 0).toFixed(2)}</div>
                 </div>
             </div>
             
@@ -827,20 +934,20 @@ async function viewErrandDetails(errandId) {
                 <h4>Location Details</h4>
                 <div class="detail-row">
                     <div class="detail-label">Town:</div>
-                    <div class="detail-value">${errand.town}</div>
+                    <div class="detail-value">${errand.town || ''}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Area:</div>
-                    <div class="detail-value">${errand.area}</div>
+                    <div class="detail-value">${errand.area || ''}</div>
                 </div>
                 ${errand.travelRequired ? `
                 <div class="detail-row">
                     <div class="detail-label">Travel From:</div>
-                    <div class="detail-value">${errand.travelFrom}</div>
+                    <div class="detail-value">${errand.travelFrom || ''}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Travel To:</div>
-                    <div class="detail-value">${errand.travelTo}</div>
+                    <div class="detail-value">${errand.travelTo || ''}</div>
                 </div>
                 ` : ''}
             </div>
@@ -866,7 +973,7 @@ async function viewErrandDetails(errandId) {
                 <div class="detail-row">
                     <div class="detail-label">Status:</div>
                     <div class="detail-value">
-                        <span class="errand-status status-${errand.status}">${errand.status.toUpperCase()}</span>
+                        <span class="errand-status status-${errand.status}">${(errand.status || '').toUpperCase()}</span>
                     </div>
                 </div>
             </div>
@@ -880,7 +987,10 @@ async function viewErrandDetails(errandId) {
             ` : ''}
         `;
         
-        document.getElementById('errandDetailsContent').innerHTML = detailsHtml;
+        const errandDetailsContent = document.getElementById('errandDetailsContent');
+        if (errandDetailsContent) {
+            errandDetailsContent.innerHTML = detailsHtml;
+        }
         showModal('errandDetailsModal');
     } catch (error) {
         console.error('View errand details error:', error);
@@ -891,6 +1001,11 @@ async function viewErrandDetails(errandId) {
 }
 
 async function viewBids(errandId) {
+    if (!db) {
+        showToast('Database not available', 'error');
+        return;
+    }
+    
     showLoading();
     try {
         const errandDoc = await db.collection('errands').doc(errandId).get();
@@ -902,8 +1017,11 @@ async function viewBids(errandId) {
         const errand = errandDoc.data();
         const bids = errand.bids || [];
         
+        const bidsContent = document.getElementById('bidsContent');
+        if (!bidsContent) return;
+        
         if (bids.length === 0) {
-            document.getElementById('bidsContent').innerHTML = `
+            bidsContent.innerHTML = `
                 <div style="text-align: center; padding: 40px;">
                     <i class="fas fa-gavel" style="font-size: 48px; color: var(--medium-gray); margin-bottom: 20px;"></i>
                     <h3>No Bids Yet</h3>
@@ -920,12 +1038,12 @@ async function viewBids(errandId) {
                 bidsHtml += `
                     <div class="bid-card">
                         <div class="bid-header">
-                            <div class="bid-amount">KSH ${bid.amount.toFixed(2)}</div>
+                            <div class="bid-amount">KSH ${(bid.amount || 0).toFixed(2)}</div>
                             <div class="bid-runner">
                                 <img src="${bid.runnerPhoto || 'https://ui-avatars.com/api/?name=RUNNER&background=1e90ff&color=fff'}" 
                                      alt="Runner" class="bid-runner-avatar">
                                 <div>
-                                    <div class="bid-runner-name">${bid.runnerName}</div>
+                                    <div class="bid-runner-name">${bid.runnerName || 'Runner'}</div>
                                     <div style="font-size: 12px; color: #666;">Rating: ${bid.runnerRating || '5.0'}</div>
                                 </div>
                             </div>
@@ -944,7 +1062,7 @@ async function viewBids(errandId) {
             });
             
             bidsHtml += '</div>';
-            document.getElementById('bidsContent').innerHTML = bidsHtml;
+            bidsContent.innerHTML = bidsHtml;
         }
         
         showModal('bidsModal');
@@ -957,6 +1075,11 @@ async function viewBids(errandId) {
 }
 
 async function acceptBid(errandId, bidIndex) {
+    if (!currentUser || !db) {
+        showToast('Database not available', 'error');
+        return;
+    }
+    
     if (!confirm('Accept this bid? The runner will be notified and the errand will become active.')) {
         return;
     }
@@ -965,7 +1088,14 @@ async function acceptBid(errandId, bidIndex) {
     try {
         const errandDoc = await db.collection('errands').doc(errandId).get();
         const errand = errandDoc.data();
-        const bid = errand.bids[bidIndex];
+        const bids = errand.bids || [];
+        
+        if (bidIndex >= bids.length) {
+            showToast('Bid not found', 'error');
+            return;
+        }
+        
+        const bid = bids[bidIndex];
         
         // Update errand status and assign runner
         await db.collection('errands').doc(errandId).update({
@@ -975,16 +1105,6 @@ async function acceptBid(errandId, bidIndex) {
             acceptedBid: bid.amount,
             acceptedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        
-        // Create a notification for the runner (in a real app)
-        // await db.collection('notifications').add({
-        //     userId: bid.runnerId,
-        //     type: 'bid_accepted',
-        //     message: `Your bid for "${errand.errandType}" has been accepted!`,
-        //     errandId: errandId,
-        //     read: false,
-        //     createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        // });
         
         showToast('Bid accepted! The runner has been assigned to your errand.', 'success');
         closeModal('bidsModal');
@@ -1001,6 +1121,11 @@ async function acceptBid(errandId, bidIndex) {
 }
 
 async function rejectBid(errandId, bidIndex) {
+    if (!currentUser || !db) {
+        showToast('Database not available', 'error');
+        return;
+    }
+    
     if (!confirm('Reject this bid? The runner will not be notified.')) {
         return;
     }
@@ -1009,9 +1134,15 @@ async function rejectBid(errandId, bidIndex) {
     try {
         const errandDoc = await db.collection('errands').doc(errandId).get();
         const errand = errandDoc.data();
+        const bids = errand.bids || [];
+        
+        if (bidIndex >= bids.length) {
+            showToast('Bid not found', 'error');
+            return;
+        }
         
         // Remove the bid from the array
-        const updatedBids = errand.bids.filter((bid, index) => index !== bidIndex);
+        const updatedBids = bids.filter((bid, index) => index !== bidIndex);
         
         await db.collection('errands').doc(errandId).update({
             bids: updatedBids
@@ -1029,8 +1160,18 @@ async function rejectBid(errandId, bidIndex) {
 
 // Payment Functions
 async function processPayment() {
-    const amount = parseFloat(document.getElementById('addFundsAmount').value);
-    const method = document.getElementById('paymentMethod').value;
+    if (!currentUser || !db) {
+        showToast('Please login first', 'error');
+        return;
+    }
+    
+    const addFundsAmount = document.getElementById('addFundsAmount');
+    const paymentMethod = document.getElementById('paymentMethod');
+    
+    if (!addFundsAmount || !paymentMethod) return;
+    
+    const amount = parseFloat(addFundsAmount.value);
+    const method = paymentMethod.value;
     
     if (!amount || amount < 1000) {
         showToast('Minimum amount is KSH 1000', 'error');
@@ -1039,9 +1180,6 @@ async function processPayment() {
     
     showLoading();
     try {
-        // In a real app, integrate with payment gateway here
-        // For demo purposes, we'll simulate payment success
-        
         // Update user's wallet balance
         const newBalance = (userData.walletBalance || 0) + amount;
         await db.collection('users').doc(currentUser.uid).update({
@@ -1129,16 +1267,22 @@ function closeModal(modalId) {
 }
 
 function showToast(message, type = 'info') {
-    toast.className = `toast ${type}`;
-    document.getElementById('toastMessage').textContent = message;
+    if (!toast) return;
     
-    const icon = document.getElementById('toastIcon');
-    if (type === 'success') {
-        icon.className = 'fas fa-check-circle';
-    } else if (type === 'error') {
-        icon.className = 'fas fa-exclamation-circle';
-    } else {
-        icon.className = 'fas fa-info-circle';
+    toast.className = `toast ${type}`;
+    const toastMessage = document.getElementById('toastMessage');
+    const toastIcon = document.getElementById('toastIcon');
+    
+    if (toastMessage) toastMessage.textContent = message;
+    
+    if (toastIcon) {
+        if (type === 'success') {
+            toastIcon.className = 'fas fa-check-circle';
+        } else if (type === 'error') {
+            toastIcon.className = 'fas fa-exclamation-circle';
+        } else {
+            toastIcon.className = 'fas fa-info-circle';
+        }
     }
     
     toast.classList.add('show');
@@ -1149,21 +1293,25 @@ function showToast(message, type = 'info') {
 }
 
 function showLoading() {
-    loadingSpinner.style.display = 'flex';
+    if (loadingSpinner) {
+        loadingSpinner.style.display = 'flex';
+    }
 }
 
 function hideLoading() {
-    loadingSpinner.style.display = 'none';
+    if (loadingSpinner) {
+        loadingSpinner.style.display = 'none';
+    }
 }
 
 function showApp() {
-    loginPage.style.display = 'none';
-    appContainer.style.display = 'flex';
+    if (loginPage) loginPage.style.display = 'none';
+    if (appContainer) appContainer.style.display = 'flex';
 }
 
 function showLogin() {
-    loginPage.style.display = 'flex';
-    appContainer.style.display = 'none';
+    if (loginPage) loginPage.style.display = 'flex';
+    if (appContainer) appContainer.style.display = 'none';
     currentUser = null;
     userData = {};
     isNewUser = false;
@@ -1177,8 +1325,11 @@ function refreshDashboard() {
 // Initialize with demo data
 window.addEventListener('load', function() {
     // Set demo credentials
-    document.getElementById('email').value = 'test@example.com';
-    document.getElementById('password').value = 'password123';
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    
+    if (emailInput) emailInput.value = 'test@example.com';
+    if (passwordInput) passwordInput.value = 'password123';
     
     // Auto-login for demo (remove in production)
     setTimeout(() => {
@@ -1195,3 +1346,14 @@ window.addEventListener('click', (e) => {
         e.target.classList.remove('active');
     }
 });
+
+// Make functions globally available
+window.callSupport = callSupport;
+window.whatsappSupport = whatsappSupport;
+window.showPage = showPage;
+window.closeModal = closeModal;
+window.viewBids = viewBids;
+window.viewErrandDetails = viewErrandDetails;
+window.acceptBid = acceptBid;
+window.rejectBid = rejectBid;
+window.filterErrands = filterErrands;

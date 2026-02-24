@@ -327,6 +327,8 @@ async function loadUserData() {
             loadDashboardData();
             // Load wallet data
             loadWalletData();
+            // Set up real-time listeners for errand updates
+            setupErrandListeners();
             
             showToast('Welcome back, ' + (userData.name || 'User') + '!', 'success');
         } else {
@@ -362,6 +364,282 @@ async function loadUserData() {
     } catch (error) {
         console.error('Error loading user data:', error);
         showToast('Error loading user data: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function setupErrandListeners() {
+    if (!currentUser || !db) return;
+    
+    // Listen for updates to client's errands
+    db.collection('errands')
+        .where('clientId', '==', currentUser.uid)
+        .onSnapshot(snapshot => {
+            snapshot.docChanges().forEach(change => {
+                if (change.type === 'modified') {
+                    const errand = change.doc.data();
+                    const errandId = change.doc.id;
+                    
+                    // Check for status changes that need client attention
+                    if (errand.status === 'in_progress' && errand.startedAt) {
+                        // Runner has started the errand
+                        showToast(`Runner has started your errand: ${errand.errandType}`, 'info');
+                    } else if (errand.status === 'pending_client_approval' && errand.completionRequestedAt) {
+                        // Runner has requested completion
+                        showCompletionRequestNotification(errand, errandId);
+                    } else if (errand.status === 'completed' && errand.completedAt) {
+                        // Errand completed
+                        showToast(`Errand completed: ${errand.errandType}`, 'success');
+                    }
+                    
+                    // Refresh the current view if needed
+                    const currentPage = getCurrentPage();
+                    if (currentPage === 'myErrands') {
+                        loadUserErrands();
+                    } else if (currentPage === 'dashboard') {
+                        loadDashboardData();
+                    }
+                }
+            });
+        }, error => {
+            console.error('Errand listener error:', error);
+        });
+}
+
+function showCompletionRequestNotification(errand, errandId) {
+    // Create a custom notification modal
+    const modalHtml = `
+        <div id="completionRequestModal" class="modal active">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2>Errand Completion Request</h2>
+                    <button class="close-modal" onclick="closeModal('completionRequestModal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <i class="fas fa-check-circle" style="font-size: 64px; color: var(--lime-green);"></i>
+                    </div>
+                    <h3 style="text-align: center; margin-bottom: 15px;">Runner has completed your errand</h3>
+                    <p style="text-align: center; color: #666; margin-bottom: 20px;">
+                        <strong>${errand.errandType}</strong><br>
+                        ${errand.description}
+                    </p>
+                    
+                    ${errand.completionNotes ? `
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: var(--radius); margin-bottom: 20px;">
+                        <strong>Runner's Notes:</strong>
+                        <p style="margin-top: 10px; color: #666;">${errand.completionNotes}</p>
+                    </div>
+                    ` : ''}
+                    
+                    <div style="background-color: #e7f3ff; padding: 15px; border-radius: var(--radius); margin-bottom: 20px;">
+                        <i class="fas fa-info-circle" style="color: var(--light-blue); margin-right: 10px;"></i>
+                        <span style="font-size: 14px;">Please confirm if the errand was completed satisfactorily. If there's an issue, you can raise a dispute.</span>
+                    </div>
+                    
+                    <div style="display: flex; gap: 15px; margin-top: 30px;">
+                        <button class="btn btn-success" style="flex: 1;" onclick="approveCompletion('${errandId}')">
+                            <i class="fas fa-check"></i> Yes, Finish Errand
+                        </button>
+                        <button class="btn btn-danger" style="flex: 1; background-color: #dc3545;" onclick="raiseDispute('${errandId}')">
+                            <i class="fas fa-exclamation-triangle"></i> Raise Dispute
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove any existing completion modal
+    const existingModal = document.getElementById('completionRequestModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add the modal to the body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Also show a toast notification
+    showToast('Runner has requested completion of your errand', 'info');
+}
+
+// Approve completion function
+async function approveCompletion(errandId) {
+    showLoading();
+    try {
+        const errandDoc = await db.collection('errands').doc(errandId).get();
+        const errand = errandDoc.data();
+        
+        // Update errand status
+        await db.collection('errands').doc(errandId).update({
+            status: 'completed',
+            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            clientApproved: true
+        });
+        
+        // Release payment to runner (update runner's wallet)
+        if (errand.assignedRunnerId) {
+            const runnerRef = db.collection('runners').doc(errand.assignedRunnerId);
+            await runnerRef.update({
+                walletBalance: firebase.firestore.FieldValue.increment(errand.runnerAmount || 0),
+                totalJobs: firebase.firestore.FieldValue.increment(1),
+                totalEarnings: firebase.firestore.FieldValue.increment(errand.runnerAmount || 0)
+            });
+            
+            // Record transaction
+            await db.collection('transactions').add({
+                errandId: errandId,
+                runnerId: errand.assignedRunnerId,
+                clientId: currentUser.uid,
+                amount: errand.runnerAmount,
+                type: 'payment_release',
+                status: 'completed',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        
+        // Update client stats
+        await db.collection('users').doc(currentUser.uid).update({
+            totalSpent: firebase.firestore.FieldValue.increment(errand.budget || 0),
+            totalErrands: firebase.firestore.FieldValue.increment(1)
+        });
+        
+        showToast('Errand marked as complete! Payment released to runner.', 'success');
+        
+        // Close the modal
+        closeModal('completionRequestModal');
+        
+        // Refresh the view
+        loadUserErrands();
+        loadDashboardData();
+        
+    } catch (error) {
+        console.error('Error approving completion:', error);
+        showToast('Error approving completion: ' + error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Raise dispute function
+async function raiseDispute(errandId) {
+    // Create dispute modal
+    const disputeHtml = `
+        <div id="disputeModal" class="modal active">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2>Raise a Dispute</h2>
+                    <button class="close-modal" onclick="closeModal('disputeModal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: #dc3545;"></i>
+                    </div>
+                    <p style="margin-bottom: 20px;">Please describe the issue with this errand completion. Our support team will review and get back to you within 24 hours.</p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Dispute Reason</label>
+                        <select id="disputeReason" class="form-control">
+                            <option value="incomplete">Errand not completed properly</option>
+                            <option value="damage">Items damaged</option>
+                            <option value="late">Extremely late delivery</option>
+                            <option value="wrong">Wrong items delivered</option>
+                            <option value="other">Other issue</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea id="disputeDescription" class="form-control" rows="4" placeholder="Please provide details about the issue..."></textarea>
+                    </div>
+                    
+                    <div style="background-color: #f8d7da; padding: 15px; border-radius: var(--radius); margin-top: 20px;">
+                        <i class="fas fa-info-circle" style="color: #dc3545; margin-right: 10px;"></i>
+                        <span style="font-size: 14px; color: #721c24;">The payment will be held in escrow until the dispute is resolved.</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="closeModal('disputeModal')">Cancel</button>
+                    <button class="btn btn-danger" style="background-color: #dc3545;" onclick="submitDispute('${errandId}')">
+                        <i class="fas fa-gavel"></i> Submit Dispute
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove any existing dispute modal
+    const existingModal = document.getElementById('disputeModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Close the completion modal
+    closeModal('completionRequestModal');
+    
+    // Add dispute modal to body
+    document.body.insertAdjacentHTML('beforeend', disputeHtml);
+}
+
+// Submit dispute function
+async function submitDispute(errandId) {
+    const reason = document.getElementById('disputeReason').value;
+    const description = document.getElementById('disputeDescription').value;
+    
+    if (!description) {
+        showToast('Please provide a description of the issue', 'error');
+        return;
+    }
+    
+    showLoading();
+    try {
+        const errandDoc = await db.collection('errands').doc(errandId).get();
+        const errand = errandDoc.data();
+        
+        // Update errand status to disputed
+        await db.collection('errands').doc(errandId).update({
+            status: 'disputed',
+            disputedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            disputeReason: reason,
+            disputeDescription: description,
+            disputedBy: currentUser.uid
+        });
+        
+        // Create dispute ticket in admin dashboard
+        await db.collection('disputes').add({
+            errandId: errandId,
+            clientId: currentUser.uid,
+            clientName: userData.name,
+            runnerId: errand.assignedRunnerId,
+            runnerName: errand.assignedRunnerName,
+            errandType: errand.errandType,
+            amount: errand.budget,
+            reason: reason,
+            description: description,
+            status: 'pending',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // Send notification to admin (you can implement this based on your admin dashboard)
+        await db.collection('adminNotifications').add({
+            type: 'new_dispute',
+            errandId: errandId,
+            message: `New dispute raised for errand: ${errand.errandType}`,
+            read: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        showToast('Dispute raised successfully. Support will contact you within 24 hours.', 'success');
+        closeModal('disputeModal');
+        
+        // Refresh the view
+        loadUserErrands();
+        loadDashboardData();
+        
+    } catch (error) {
+        console.error('Error raising dispute:', error);
+        showToast('Error raising dispute: ' + error.message, 'error');
     } finally {
         hideLoading();
     }
@@ -815,7 +1093,7 @@ async function getActiveErrandsCount() {
     
     const snapshot = await db.collection('errands')
         .where('clientId', '==', currentUser.uid)
-        .where('status', 'in', ['pending', 'active'])
+        .where('status', 'in', ['pending', 'active', 'in_progress'])
         .get();
     return snapshot.size;
 }
@@ -828,6 +1106,15 @@ function createErrandCard(errand, id) {
     
     const statusClass = `status-${errand.status}`;
     const date = errand.createdAt ? errand.createdAt.toDate().toLocaleDateString() : 'Recent';
+    
+    let statusText = errand.status.toUpperCase();
+    if (errand.status === 'in_progress') {
+        statusText = 'IN PROGRESS - RUNNER WORKING';
+    } else if (errand.status === 'pending_client_approval') {
+        statusText = 'AWAITING YOUR APPROVAL';
+    } else if (errand.status === 'disputed') {
+        statusText = 'DISPUTED - UNDER REVIEW';
+    }
     
     card.innerHTML = `
         <div class="errand-header">
@@ -854,6 +1141,12 @@ function createErrandCard(errand, id) {
                     <span>${errand.runnerNeeds}</span>
                 </div>
                 ` : ''}
+                ${errand.assignedRunnerName ? `
+                <div class="errand-detail">
+                    <i class="fas fa-user"></i>
+                    <span>Runner: ${errand.assignedRunnerName}</span>
+                </div>
+                ` : ''}
                 <div class="errand-detail">
                     <i class="fas fa-calendar"></i>
                     <span>${date}</span>
@@ -861,11 +1154,16 @@ function createErrandCard(errand, id) {
             </div>
         </div>
         <div class="errand-footer">
-            <span class="errand-status ${statusClass}">${(errand.status || '').toUpperCase()}</span>
+            <span class="errand-status ${statusClass}">${statusText}</span>
             <div>
                 ${errand.status === 'pending' ? `
                 <button class="btn btn-outline" onclick="viewBids('${id}')" style="padding: 5px 15px; font-size: 12px;">
                     <i class="fas fa-gavel"></i> View Bids (${errand.bids?.length || 0})
+                </button>
+                ` : ''}
+                ${errand.status === 'pending_client_approval' ? `
+                <button class="btn btn-success" onclick="showCompletionApproval('${id}')" style="padding: 5px 15px; font-size: 12px; background-color: var(--lime-green);">
+                    <i class="fas fa-check"></i> Review & Complete
                 </button>
                 ` : ''}
                 <button class="btn btn-outline" onclick="viewErrandDetails('${id}')" style="padding: 5px 15px; font-size: 12px;">
@@ -889,6 +1187,35 @@ function filterErrands(filter) {
     });
 }
 
+function showCompletionApproval(errandId) {
+    viewErrandDetails(errandId);
+    // The modal will show and we'll add a special section
+    setTimeout(() => {
+        const detailsContent = document.getElementById('errandDetailsContent');
+        if (detailsContent) {
+            const approveSection = document.createElement('div');
+            approveSection.className = 'errand-details-section';
+            approveSection.style.backgroundColor = '#e7f3ff';
+            approveSection.style.padding = '20px';
+            approveSection.style.borderRadius = 'var(--radius)';
+            approveSection.style.marginTop = '20px';
+            approveSection.innerHTML = `
+                <h4 style="margin-bottom: 15px;">Errand Completion Request</h4>
+                <p style="margin-bottom: 20px;">The runner has marked this errand as complete. Please verify and confirm.</p>
+                <div style="display: flex; gap: 15px;">
+                    <button class="btn btn-success" style="flex: 1;" onclick="approveCompletion('${errandId}')">
+                        <i class="fas fa-check"></i> Approve Completion
+                    </button>
+                    <button class="btn btn-danger" style="flex: 1; background-color: #dc3545;" onclick="raiseDispute('${errandId}')">
+                        <i class="fas fa-exclamation-triangle"></i> Raise Dispute
+                    </button>
+                </div>
+            `;
+            detailsContent.appendChild(approveSection);
+        }
+    }, 100);
+}
+
 // Errand Details and Bids Functions
 async function viewErrandDetails(errandId) {
     if (!db) {
@@ -907,6 +1234,46 @@ async function viewErrandDetails(errandId) {
         const errand = errandDoc.data();
         const date = errand.createdAt ? errand.createdAt.toDate().toLocaleString() : 'N/A';
         const deadline = errand.deadline ? new Date(errand.deadline).toLocaleString() : 'Not set';
+        
+        let statusHtml = '';
+        if (errand.status === 'in_progress' && errand.startedAt) {
+            const startedDate = errand.startedAt.toDate().toLocaleString();
+            statusHtml = `
+                <div class="detail-row">
+                    <div class="detail-label">Started:</div>
+                    <div class="detail-value">${startedDate}</div>
+                </div>
+            `;
+        } else if (errand.status === 'pending_client_approval' && errand.completionRequestedAt) {
+            const requestedDate = errand.completionRequestedAt.toDate().toLocaleString();
+            statusHtml = `
+                <div class="detail-row">
+                    <div class="detail-label">Completed:</div>
+                    <div class="detail-value">${requestedDate}</div>
+                </div>
+                ${errand.completionNotes ? `
+                <div class="detail-row">
+                    <div class="detail-label">Runner's Notes:</div>
+                    <div class="detail-value">${errand.completionNotes}</div>
+                </div>
+                ` : ''}
+            `;
+        } else if (errand.status === 'disputed') {
+            statusHtml = `
+                <div class="detail-row">
+                    <div class="detail-label">Disputed:</div>
+                    <div class="detail-value">${errand.disputedAt ? errand.disputedAt.toDate().toLocaleString() : 'N/A'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Reason:</div>
+                    <div class="detail-value">${errand.disputeReason || 'N/A'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Description:</div>
+                    <div class="detail-value">${errand.disputeDescription || 'N/A'}</div>
+                </div>
+            `;
+        }
         
         const detailsHtml = `
             <div class="errand-details-section">
@@ -953,6 +1320,20 @@ async function viewErrandDetails(errandId) {
             </div>
             
             <div class="errand-details-section">
+                <h4>Runner Information</h4>
+                ${errand.assignedRunnerName ? `
+                <div class="detail-row">
+                    <div class="detail-label">Runner:</div>
+                    <div class="detail-value">${errand.assignedRunnerName}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Accepted Bid:</div>
+                    <div class="detail-value">KSH ${(errand.acceptedBid || 0).toFixed(2)}</div>
+                </div>
+                ` : '<p>No runner assigned yet</p>'}
+            </div>
+            
+            <div class="errand-details-section">
                 <h4>Additional Information</h4>
                 <div class="detail-row">
                     <div class="detail-label">Runner Needs:</div>
@@ -970,10 +1351,11 @@ async function viewErrandDetails(errandId) {
                     <div class="detail-label">Posted:</div>
                     <div class="detail-value">${date}</div>
                 </div>
+                ${statusHtml}
                 <div class="detail-row">
                     <div class="detail-label">Status:</div>
                     <div class="detail-value">
-                        <span class="errand-status status-${errand.status}">${(errand.status || '').toUpperCase()}</span>
+                        <span class="errand-status status-${errand.status}">${errand.status.toUpperCase()}</span>
                     </div>
                 </div>
             </div>
@@ -983,6 +1365,28 @@ async function viewErrandDetails(errandId) {
                 <button class="btn btn-primary" onclick="viewBids('${errandId}')">
                     <i class="fas fa-gavel"></i> View Bids (${errand.bids?.length || 0})
                 </button>
+            </div>
+            ` : ''}
+            
+            ${errand.status === 'pending_client_approval' ? `
+            <div class="errand-details-section" style="background-color: #e7f3ff; padding: 20px; border-radius: var(--radius); margin-top: 20px;">
+                <h4 style="margin-bottom: 15px;">Errand Completion Request</h4>
+                <p style="margin-bottom: 20px;">The runner has marked this errand as complete. Please verify and confirm.</p>
+                <div style="display: flex; gap: 15px;">
+                    <button class="btn btn-success" style="flex: 1;" onclick="approveCompletion('${errandId}')">
+                        <i class="fas fa-check"></i> Approve Completion
+                    </button>
+                    <button class="btn btn-danger" style="flex: 1; background-color: #dc3545;" onclick="raiseDispute('${errandId}')">
+                        <i class="fas fa-exclamation-triangle"></i> Raise Dispute
+                    </button>
+                </div>
+            </div>
+            ` : ''}
+            
+            ${errand.status === 'disputed' ? `
+            <div class="errand-details-section" style="background-color: #f8d7da; padding: 20px; border-radius: var(--radius); margin-top: 20px;">
+                <h4 style="margin-bottom: 15px; color: #721c24;">Dispute Status</h4>
+                <p style="color: #721c24;">This errand is under review by our support team. They will contact you within 24 hours.</p>
             </div>
             ` : ''}
         `;
@@ -1235,6 +1639,14 @@ function getCurrentLocation() {
 }
 
 // UI Helper Functions
+function getCurrentPage() {
+    const activePage = document.querySelector('.page.active');
+    if (activePage) {
+        return activePage.id.replace('Page', '');
+    }
+    return 'dashboard';
+}
+
 function showPage(pageId) {
     pages.forEach(page => page.classList.remove('active'));
     const pageElement = document.getElementById(`${pageId}Page`);
@@ -1357,3 +1769,7 @@ window.viewErrandDetails = viewErrandDetails;
 window.acceptBid = acceptBid;
 window.rejectBid = rejectBid;
 window.filterErrands = filterErrands;
+window.approveCompletion = approveCompletion;
+window.raiseDispute = raiseDispute;
+window.submitDispute = submitDispute;
+window.showCompletionApproval = showCompletionApproval;

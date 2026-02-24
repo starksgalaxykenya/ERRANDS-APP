@@ -408,6 +408,11 @@ function setupErrandListeners() {
 }
 
 function showCompletionRequestNotification(errand, errandId) {
+    // Calculate based on accepted bid amount, not original budget
+    const acceptedAmount = errand.acceptedBid || 0;
+    const serviceFee = acceptedAmount * 0.20;
+    const runnerReceives = acceptedAmount - serviceFee;
+    
     // Create a custom notification modal
     const modalHtml = `
         <div id="completionRequestModal" class="modal active">
@@ -426,6 +431,21 @@ function showCompletionRequestNotification(errand, errandId) {
                         ${errand.description}
                     </p>
                     
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: var(--radius); margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                            <span>Accepted Bid Amount:</span>
+                            <strong>KSH ${acceptedAmount.toFixed(2)}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; color: #666;">
+                            <span>Service Fee (20%):</span>
+                            <span>KSH ${serviceFee.toFixed(2)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: 600; border-top: 1px solid var(--medium-gray); padding-top: 10px;">
+                            <span>Runner Receives:</span>
+                            <span style="color: var(--dark-green);">KSH ${runnerReceives.toFixed(2)}</span>
+                        </div>
+                    </div>
+                    
                     ${errand.completionNotes ? `
                     <div style="background-color: #f8f9fa; padding: 15px; border-radius: var(--radius); margin-bottom: 20px;">
                         <strong>Runner's Notes:</strong>
@@ -435,7 +455,7 @@ function showCompletionRequestNotification(errand, errandId) {
                     
                     <div style="background-color: #e7f3ff; padding: 15px; border-radius: var(--radius); margin-bottom: 20px;">
                         <i class="fas fa-info-circle" style="color: var(--light-blue); margin-right: 10px;"></i>
-                        <span style="font-size: 14px;">Please confirm if the errand was completed satisfactorily. If there's an issue, you can raise a dispute.</span>
+                        <span style="font-size: 14px;">Please confirm if the errand was completed satisfactorily. If you approve, the payment of KSH ${acceptedAmount.toFixed(2)} (including fees) will be released to the runner.</span>
                     </div>
                     
                     <div style="display: flex; gap: 15px; margin-top: 30px;">
@@ -464,27 +484,35 @@ function showCompletionRequestNotification(errand, errandId) {
     showToast('Runner has requested completion of your errand', 'info');
 }
 
-// Approve completion function
+// Approve completion function - UPDATED to use accepted bid amount
 async function approveCompletion(errandId) {
     showLoading();
     try {
         const errandDoc = await db.collection('errands').doc(errandId).get();
         const errand = errandDoc.data();
         
+        // Use accepted bid amount for calculations
+        const acceptedAmount = errand.acceptedBid || 0;
+        const serviceFee = acceptedAmount * 0.20;
+        const runnerReceives = acceptedAmount - serviceFee;
+        
         // Update errand status
         await db.collection('errands').doc(errandId).update({
             status: 'completed',
             completedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            clientApproved: true
+            clientApproved: true,
+            finalAmount: acceptedAmount,
+            finalServiceFee: serviceFee,
+            finalRunnerAmount: runnerReceives
         });
         
-        // Release payment to runner (update runner's wallet)
+        // Release payment to runner (update runner's wallet) - using accepted bid amount
         if (errand.assignedRunnerId) {
             const runnerRef = db.collection('runners').doc(errand.assignedRunnerId);
             await runnerRef.update({
-                walletBalance: firebase.firestore.FieldValue.increment(errand.runnerAmount || 0),
+                walletBalance: firebase.firestore.FieldValue.increment(runnerReceives),
                 totalJobs: firebase.firestore.FieldValue.increment(1),
-                totalEarnings: firebase.firestore.FieldValue.increment(errand.runnerAmount || 0)
+                totalEarnings: firebase.firestore.FieldValue.increment(runnerReceives)
             });
             
             // Record transaction
@@ -492,20 +520,23 @@ async function approveCompletion(errandId) {
                 errandId: errandId,
                 runnerId: errand.assignedRunnerId,
                 clientId: currentUser.uid,
-                amount: errand.runnerAmount,
+                amount: runnerReceives,
+                originalBudget: errand.budget,
+                acceptedBid: acceptedAmount,
+                serviceFee: serviceFee,
                 type: 'payment_release',
                 status: 'completed',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         }
         
-        // Update client stats
+        // Update client stats - use the accepted bid amount for total spent
         await db.collection('users').doc(currentUser.uid).update({
-            totalSpent: firebase.firestore.FieldValue.increment(errand.budget || 0),
+            totalSpent: firebase.firestore.FieldValue.increment(acceptedAmount),
             totalErrands: firebase.firestore.FieldValue.increment(1)
         });
         
-        showToast('Errand marked as complete! Payment released to runner.', 'success');
+        showToast(`Errand marked as complete! KSH ${runnerReceives.toFixed(2)} released to runner.`, 'success');
         
         // Close the modal
         closeModal('completionRequestModal');
@@ -513,6 +544,7 @@ async function approveCompletion(errandId) {
         // Refresh the view
         loadUserErrands();
         loadDashboardData();
+        loadWalletData(); // Refresh wallet to show updated balance
         
     } catch (error) {
         console.error('Error approving completion:', error);
@@ -524,65 +556,84 @@ async function approveCompletion(errandId) {
 
 // Raise dispute function
 async function raiseDispute(errandId) {
-    // Create dispute modal
-    const disputeHtml = `
-        <div id="disputeModal" class="modal active">
-            <div class="modal-content" style="max-width: 500px;">
-                <div class="modal-header">
-                    <h2>Raise a Dispute</h2>
-                    <button class="close-modal" onclick="closeModal('disputeModal')">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div style="text-align: center; margin-bottom: 20px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: #dc3545;"></i>
+    showLoading();
+    try {
+        const errandDoc = await db.collection('errands').doc(errandId).get();
+        const errand = errandDoc.data();
+        
+        // Create dispute modal with bid information
+        const disputeHtml = `
+            <div id="disputeModal" class="modal active">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h2>Raise a Dispute</h2>
+                        <button class="close-modal" onclick="closeModal('disputeModal')">&times;</button>
                     </div>
-                    <p style="margin-bottom: 20px;">Please describe the issue with this errand completion. Our support team will review and get back to you within 24 hours.</p>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Dispute Reason</label>
-                        <select id="disputeReason" class="form-control">
-                            <option value="incomplete">Errand not completed properly</option>
-                            <option value="damage">Items damaged</option>
-                            <option value="late">Extremely late delivery</option>
-                            <option value="wrong">Wrong items delivered</option>
-                            <option value="other">Other issue</option>
-                        </select>
+                    <div class="modal-body">
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: #dc3545;"></i>
+                        </div>
+                        <p style="margin-bottom: 20px;">Please describe the issue with this errand completion. Our support team will review and get back to you within 24 hours.</p>
+                        
+                        <div style="background-color: #f8f9fa; padding: 15px; border-radius: var(--radius); margin-bottom: 20px;">
+                            <h4 style="margin-bottom: 10px;">Errand Details</h4>
+                            <p><strong>Type:</strong> ${errand.errandType}</p>
+                            <p><strong>Accepted Bid:</strong> KSH ${(errand.acceptedBid || 0).toFixed(2)}</p>
+                            <p><strong>Amount at stake:</strong> KSH ${(errand.acceptedBid || 0).toFixed(2)}</p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Dispute Reason</label>
+                            <select id="disputeReason" class="form-control">
+                                <option value="incomplete">Errand not completed properly</option>
+                                <option value="damage">Items damaged</option>
+                                <option value="late">Extremely late delivery</option>
+                                <option value="wrong">Wrong items delivered</option>
+                                <option value="other">Other issue</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea id="disputeDescription" class="form-control" rows="4" placeholder="Please provide details about the issue..."></textarea>
+                        </div>
+                        
+                        <div style="background-color: #f8d7da; padding: 15px; border-radius: var(--radius); margin-top: 20px;">
+                            <i class="fas fa-info-circle" style="color: #dc3545; margin-right: 10px;"></i>
+                            <span style="font-size: 14px; color: #721c24;">The payment of KSH ${(errand.acceptedBid || 0).toFixed(2)} will be held in escrow until the dispute is resolved.</span>
+                        </div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Description</label>
-                        <textarea id="disputeDescription" class="form-control" rows="4" placeholder="Please provide details about the issue..."></textarea>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline" onclick="closeModal('disputeModal')">Cancel</button>
+                        <button class="btn btn-danger" style="background-color: #dc3545;" onclick="submitDispute('${errandId}')">
+                            <i class="fas fa-gavel"></i> Submit Dispute
+                        </button>
                     </div>
-                    
-                    <div style="background-color: #f8d7da; padding: 15px; border-radius: var(--radius); margin-top: 20px;">
-                        <i class="fas fa-info-circle" style="color: #dc3545; margin-right: 10px;"></i>
-                        <span style="font-size: 14px; color: #721c24;">The payment will be held in escrow until the dispute is resolved.</span>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline" onclick="closeModal('disputeModal')">Cancel</button>
-                    <button class="btn btn-danger" style="background-color: #dc3545;" onclick="submitDispute('${errandId}')">
-                        <i class="fas fa-gavel"></i> Submit Dispute
-                    </button>
                 </div>
             </div>
-        </div>
-    `;
-    
-    // Remove any existing dispute modal
-    const existingModal = document.getElementById('disputeModal');
-    if (existingModal) {
-        existingModal.remove();
+        `;
+        
+        // Remove any existing dispute modal
+        const existingModal = document.getElementById('disputeModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Close the completion modal
+        closeModal('completionRequestModal');
+        
+        // Add dispute modal to body
+        document.body.insertAdjacentHTML('beforeend', disputeHtml);
+        
+    } catch (error) {
+        console.error('Error preparing dispute:', error);
+        showToast('Error preparing dispute: ' + error.message, 'error');
+    } finally {
+        hideLoading();
     }
-    
-    // Close the completion modal
-    closeModal('completionRequestModal');
-    
-    // Add dispute modal to body
-    document.body.insertAdjacentHTML('beforeend', disputeHtml);
 }
 
-// Submit dispute function
+// Submit dispute function - UPDATED to use accepted bid amount
 async function submitDispute(errandId) {
     const reason = document.getElementById('disputeReason').value;
     const description = document.getElementById('disputeDescription').value;
@@ -597,13 +648,18 @@ async function submitDispute(errandId) {
         const errandDoc = await db.collection('errands').doc(errandId).get();
         const errand = errandDoc.data();
         
+        const acceptedAmount = errand.acceptedBid || 0;
+        const serviceFee = acceptedAmount * 0.20;
+        const runnerReceives = acceptedAmount - serviceFee;
+        
         // Update errand status to disputed
         await db.collection('errands').doc(errandId).update({
             status: 'disputed',
             disputedAt: firebase.firestore.FieldValue.serverTimestamp(),
             disputeReason: reason,
             disputeDescription: description,
-            disputedBy: currentUser.uid
+            disputedBy: currentUser.uid,
+            disputedAmount: acceptedAmount
         });
         
         // Create dispute ticket in admin dashboard
@@ -614,18 +670,21 @@ async function submitDispute(errandId) {
             runnerId: errand.assignedRunnerId,
             runnerName: errand.assignedRunnerName,
             errandType: errand.errandType,
-            amount: errand.budget,
+            originalBudget: errand.budget,
+            acceptedBid: acceptedAmount,
+            serviceFee: serviceFee,
+            runnerAmount: runnerReceives,
             reason: reason,
             description: description,
             status: 'pending',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
-        // Send notification to admin (you can implement this based on your admin dashboard)
+        // Send notification to admin
         await db.collection('adminNotifications').add({
             type: 'new_dispute',
             errandId: errandId,
-            message: `New dispute raised for errand: ${errand.errandType}`,
+            message: `New dispute raised for errand: ${errand.errandType} - Amount: KSH ${acceptedAmount.toFixed(2)}`,
             read: false,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -1083,7 +1142,9 @@ async function getTotalSpent() {
     
     let total = 0;
     snapshot.forEach(doc => {
-        total += doc.data().budget || 0;
+        // Use finalAmount if available, otherwise use acceptedBid, otherwise use budget
+        const errand = doc.data();
+        total += errand.finalAmount || errand.acceptedBid || errand.budget || 0;
     });
     return total;
 }
@@ -1116,10 +1177,13 @@ function createErrandCard(errand, id) {
         statusText = 'DISPUTED - UNDER REVIEW';
     }
     
+    // Show the accepted bid amount if available, otherwise show budget
+    const displayAmount = errand.acceptedBid || errand.budget || 0;
+    
     card.innerHTML = `
         <div class="errand-header">
             <span class="errand-type">${errand.errandType || 'Errand'}</span>
-            <span class="errand-budget">KSH ${(errand.budget || 0).toFixed(2)}</span>
+            <span class="errand-budget">KSH ${displayAmount.toFixed(2)}</span>
         </div>
         <div class="errand-body">
             <h3 class="errand-title">${(errand.description || '').substring(0, 60)}${errand.description && errand.description.length > 60 ? '...' : ''}</h3>
@@ -1235,6 +1299,11 @@ async function viewErrandDetails(errandId) {
         const date = errand.createdAt ? errand.createdAt.toDate().toLocaleString() : 'N/A';
         const deadline = errand.deadline ? new Date(errand.deadline).toLocaleString() : 'Not set';
         
+        // Use accepted bid if available, otherwise use budget
+        const displayBudget = errand.acceptedBid || errand.budget || 0;
+        const serviceFee = displayBudget * 0.20;
+        const runnerReceives = displayBudget - serviceFee;
+        
         let statusHtml = '';
         if (errand.status === 'in_progress' && errand.startedAt) {
             const startedDate = errand.startedAt.toDate().toLocaleString();
@@ -1282,18 +1351,29 @@ async function viewErrandDetails(errandId) {
             </div>
             
             <div class="errand-details-section">
-                <h4>Budget Details</h4>
+                <h4>Payment Details</h4>
+                ${errand.acceptedBid ? `
+                <div class="detail-row">
+                    <div class="detail-label">Original Budget:</div>
+                    <div class="detail-value">KSH ${(errand.budget || 0).toFixed(2)}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Accepted Bid:</div>
+                    <div class="detail-value" style="color: var(--dark-green); font-weight: 600;">KSH ${(errand.acceptedBid || 0).toFixed(2)}</div>
+                </div>
+                ` : `
                 <div class="detail-row">
                     <div class="detail-label">Budget:</div>
                     <div class="detail-value">KSH ${(errand.budget || 0).toFixed(2)}</div>
                 </div>
+                `}
                 <div class="detail-row">
                     <div class="detail-label">Service Fee (20%):</div>
-                    <div class="detail-value">KSH ${(errand.serviceFee || 0).toFixed(2)}</div>
+                    <div class="detail-value">KSH ${serviceFee.toFixed(2)}</div>
                 </div>
                 <div class="detail-row">
                     <div class="detail-label">Runner Receives:</div>
-                    <div class="detail-value">KSH ${(errand.runnerAmount || 0).toFixed(2)}</div>
+                    <div class="detail-value">KSH ${runnerReceives.toFixed(2)}</div>
                 </div>
             </div>
             
@@ -1439,6 +1519,9 @@ async function viewBids(errandId) {
             bids.sort((a, b) => a.amount - b.amount);
             
             bids.forEach((bid, index) => {
+                const bidServiceFee = bid.amount * 0.20;
+                const bidRunnerReceives = bid.amount - bidServiceFee;
+                
                 bidsHtml += `
                     <div class="bid-card">
                         <div class="bid-header">
@@ -1452,7 +1535,17 @@ async function viewBids(errandId) {
                                 </div>
                             </div>
                         </div>
-                        <div class="bid-details">${bid.message || 'No message provided'}</div>
+                        <div class="bid-details">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 13px;">
+                                <span>Service Fee (20%):</span>
+                                <span>KSH ${bidServiceFee.toFixed(2)}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-weight: 600; font-size: 13px;">
+                                <span>Runner receives:</span>
+                                <span style="color: var(--dark-green);">KSH ${bidRunnerReceives.toFixed(2)}</span>
+                            </div>
+                            <div style="margin-top: 10px; color: #666;">${bid.message || 'No message provided'}</div>
+                        </div>
                         <div class="bid-actions">
                             <button class="btn btn-outline" onclick="rejectBid('${errandId}', ${index})" style="padding: 5px 15px; font-size: 12px;">
                                 <i class="fas fa-times"></i> Reject
@@ -1478,6 +1571,7 @@ async function viewBids(errandId) {
     }
 }
 
+// UPDATED acceptBid function to use the bid amount for calculations
 async function acceptBid(errandId, bidIndex) {
     if (!currentUser || !db) {
         showToast('Database not available', 'error');
@@ -1501,16 +1595,26 @@ async function acceptBid(errandId, bidIndex) {
         
         const bid = bids[bidIndex];
         
+        // Calculate based on the accepted bid amount
+        const acceptedAmount = bid.amount;
+        const serviceFee = acceptedAmount * 0.20;
+        const runnerReceives = acceptedAmount - serviceFee;
+        
         // Update errand status and assign runner
         await db.collection('errands').doc(errandId).update({
             status: 'active',
             assignedRunnerId: bid.runnerId,
             assignedRunnerName: bid.runnerName,
-            acceptedBid: bid.amount,
+            acceptedBid: acceptedAmount,
+            acceptedBidServiceFee: serviceFee,
+            acceptedBidRunnerAmount: runnerReceives,
             acceptedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         
-        showToast('Bid accepted! The runner has been assigned to your errand.', 'success');
+        // Note: We don't release payment here - it's held in escrow until completion
+        // The original budget was already deducted when posting the errand
+        
+        showToast(`Bid accepted! Runner will receive KSH ${runnerReceives.toFixed(2)} upon completion.`, 'success');
         closeModal('bidsModal');
         
         // Refresh errands list

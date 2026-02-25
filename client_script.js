@@ -1,9 +1,9 @@
+// client_script.js
 // Global Variables
 let currentUser = null;
 let userData = {};
 let userLocation = null;
 let isNewUser = false;
-let pendingBidAcceptance = null; // Store bid data while processing payment
 
 // DOM Elements
 const loginPage = document.getElementById('loginPage');
@@ -13,12 +13,6 @@ const navLinks = document.querySelectorAll('.nav-link');
 const toast = document.getElementById('toast');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const profileUpdateModal = document.getElementById('profileUpdateModal');
-
-// Tuma API Configuration
-const TUMA_API_BASE = 'https://api.tuma.co.ke';
-const TUMA_EMAIL = 'starksgalaxykenya@gmail.com';
-const TUMA_API_KEY = 'tuma_ed92fb676d58a48626e355191bf10e9aa28a028082a13a0558c8686eb629050f_1771931375';
-let tumaToken = null;
 
 // Initialize the App
 document.addEventListener('DOMContentLoaded', function() {
@@ -41,8 +35,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentUser = user;
                 loadUserData();
                 showApp();
-                // Get Tuma token on login
-                getTumaToken();
             } else {
                 showLogin();
             }
@@ -75,32 +67,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeErrandTypeSelector();
 });
 
-// Get Tuma API Token
-async function getTumaToken() {
-    try {
-        const response = await fetch(`${TUMA_API_BASE}/auth/token`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                email: TUMA_EMAIL,
-                api_key: TUMA_API_KEY
-            })
-        });
-        
-        const data = await response.json();
-        if (data.token) {
-            tumaToken = data.token;
-            console.log('Tuma token obtained successfully');
-        } else {
-            console.error('Failed to get Tuma token:', data);
-        }
-    } catch (error) {
-        console.error('Error getting Tuma token:', error);
-    }
-}
-
 // Event Listeners
 function initEventListeners() {
     // Login buttons
@@ -132,22 +98,18 @@ function initEventListeners() {
     // Buttons
     const refreshBtn = document.getElementById('refreshBtn');
     const quickPostBtn = document.getElementById('quickPostBtn');
-    const addFundsBtn = document.getElementById('addFundsBtn');
     const submitErrandBtn = document.getElementById('submitErrandBtn');
     const saveProfileBtn = document.getElementById('saveProfileBtn');
     const changePhotoBtn = document.getElementById('changePhotoBtn');
-    const confirmAddFunds = document.getElementById('confirmAddFunds');
     const useCurrentLocation = document.getElementById('useCurrentLocation');
     const logoutBtn = document.getElementById('logoutBtn');
     const goToProfileBtn = document.getElementById('goToProfileBtn');
     
     if (refreshBtn) refreshBtn.addEventListener('click', refreshDashboard);
     if (quickPostBtn) quickPostBtn.addEventListener('click', () => showPage('postErrand'));
-    if (addFundsBtn) addFundsBtn.addEventListener('click', () => showModal('addFundsModal'));
     if (submitErrandBtn) submitErrandBtn.addEventListener('click', submitErrand);
     if (saveProfileBtn) saveProfileBtn.addEventListener('click', saveProfile);
     if (changePhotoBtn) changePhotoBtn.addEventListener('click', changeProfilePhoto);
-    if (confirmAddFunds) confirmAddFunds.addEventListener('click', processPayment);
     if (useCurrentLocation) useCurrentLocation.addEventListener('change', getCurrentLocation);
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
     if (goToProfileBtn) goToProfileBtn.addEventListener('click', () => {
@@ -287,10 +249,8 @@ async function createUserWithEmail(email, password) {
             name: email.split('@')[0],
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             userType: 'client',
-            walletBalance: 0, // No more initial balance
             rating: 5.0,
             totalErrands: 0,
-            totalSpent: 0,
             profileComplete: false // Flag to check if profile is complete
         });
         showToast('Account created successfully!', 'success');
@@ -303,8 +263,6 @@ async function createUserWithEmail(email, password) {
 async function logout() {
     try {
         await auth.signOut();
-        tumaToken = null;
-        pendingBidAcceptance = null;
         showToast('Successfully logged out!', 'success');
         showLogin();
     } catch (error) {
@@ -362,8 +320,6 @@ async function loadUserData() {
             loadUserErrands();
             // Load dashboard data
             loadDashboardData();
-            // Load wallet data
-            loadWalletData();
             // Set up real-time listeners for errand updates
             setupErrandListeners();
             
@@ -375,17 +331,14 @@ async function loadUserData() {
                 name: currentUser.displayName || currentUser.email.split('@')[0],
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 userType: 'client',
-                walletBalance: 0,
                 rating: 5.0,
                 totalErrands: 0,
-                totalSpent: 0,
                 profileComplete: false
             });
             
             userData = {
                 email: currentUser.email,
                 name: currentUser.displayName || currentUser.email.split('@')[0],
-                walletBalance: 0,
                 rating: 5.0,
                 profileComplete: false
             };
@@ -543,7 +496,7 @@ async function approveCompletion(errandId) {
             finalRunnerAmount: runnerReceives
         });
         
-        // Release payment to runner (update runner's wallet)
+        // Release payment to runner
         if (errand.assignedRunnerId) {
             const runnerRef = db.collection('runners').doc(errand.assignedRunnerId);
             await runnerRef.update({
@@ -569,7 +522,6 @@ async function approveCompletion(errandId) {
         
         // Update client stats
         await db.collection('users').doc(currentUser.uid).update({
-            totalSpent: firebase.firestore.FieldValue.increment(acceptedAmount),
             totalErrands: firebase.firestore.FieldValue.increment(1)
         });
         
@@ -581,7 +533,6 @@ async function approveCompletion(errandId) {
         // Refresh the view
         loadUserErrands();
         loadDashboardData();
-        loadWalletData();
         
     } catch (error) {
         console.error('Error approving completion:', error);
@@ -750,7 +701,6 @@ function updateUserUI() {
     const profileId = document.getElementById('profileId');
     const profileTown = document.getElementById('profileTown');
     const profileCounty = document.getElementById('profileCounty');
-    const walletBalance = document.getElementById('walletBalance');
     
     if (userName) userName.textContent = userData.name || 'User';
     if (userEmail) userEmail.textContent = userData.email || (currentUser ? currentUser.email : '...');
@@ -767,11 +717,6 @@ function updateUserUI() {
         const profilePhoto = document.getElementById('profilePhoto');
         if (userAvatar) userAvatar.src = userData.photoURL;
         if (profilePhoto) profilePhoto.src = userData.photoURL;
-    }
-    
-    // Update wallet balance display (now only shows transaction history, not usable balance)
-    if (walletBalance) {
-        walletBalance.textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
     }
 }
 
@@ -929,15 +874,15 @@ async function submitErrand() {
             serviceFee: budgetValue * 0.20,
             runnerAmount: budgetValue * 0.80,
             deadline: deadline && deadline.value ? new Date(deadline.value) : null,
-            status: 'pending', // Errand is pending, waiting for bids
+            status: 'pending', // Pending bids, not yet paid
             bids: [],
-            paymentStatus: 'awaiting_payment', // New field to track payment status
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            paymentRequired: true,
             location: useLocation && useLocation.checked && userLocation ? userLocation : null
         };
         
-        // Create errand - NO WALLET DEDUCTION
-        const errandRef = await db.collection('errands').add(errandData);
+        // Create errand (no wallet deduction)
+        await db.collection('errands').add(errandData);
         
         showToast('Errand posted successfully! Runners can now bid on it.', 'success');
         showPage('myErrands');
@@ -1044,88 +989,14 @@ async function loadDashboardData() {
         const activeErrandsCount = document.getElementById('activeErrandsCount');
         const totalSpentElement = document.getElementById('totalSpent');
         const clientRating = document.getElementById('clientRating');
-        const walletBalance = document.getElementById('walletBalance');
         
         if (activeErrandsCount) activeErrandsCount.textContent = activeCount;
         if (totalSpentElement) totalSpentElement.textContent = `KSH ${totalSpent.toFixed(2)}`;
         if (clientRating) clientRating.textContent = userData.rating?.toFixed(1) || '5.0';
-        if (walletBalance) walletBalance.textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
         
     } catch (error) {
         console.error('Load dashboard error:', error);
         showToast('Error loading dashboard: ' + error.message, 'error');
-    }
-}
-
-async function loadWalletData() {
-    if (!currentUser || !db) return;
-    
-    try {
-        // Update wallet page balance
-        const walletPageBalance = document.getElementById('walletPageBalance');
-        if (walletPageBalance) {
-            walletPageBalance.textContent = `KSH ${(userData.walletBalance || 0).toFixed(2)}`;
-        }
-        
-        // Load transaction history
-        const snapshot = await db.collection('transactions')
-            .where('clientId', '==', currentUser.uid)
-            .orderBy('createdAt', 'desc')
-            .limit(10)
-            .get();
-        
-        const transactionHistory = document.getElementById('transactionHistory');
-        
-        if (snapshot.empty) {
-            if (transactionHistory) {
-                transactionHistory.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #666;">
-                        <i class="fas fa-exchange-alt" style="font-size: 48px; margin-bottom: 20px;"></i>
-                        <h3>No transactions yet</h3>
-                        <p>Your transaction history will appear here when you pay for errands</p>
-                    </div>
-                `;
-            }
-        } else {
-            let totalDeposits = 0;
-            let totalWithdrawals = 0;
-            let transactionsHtml = '<div style="display: grid; gap: 15px;">';
-            
-            snapshot.forEach(doc => {
-                const transaction = doc.data();
-                const date = transaction.createdAt ? transaction.createdAt.toDate().toLocaleDateString() : 'Recent';
-                
-                if (transaction.type === 'payment_release') {
-                    totalWithdrawals += transaction.amount;
-                }
-                
-                transactionsHtml += `
-                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: 600;">${transaction.type === 'payment_release' ? 'Payment to Runner' : transaction.type}</div>
-                            <div style="font-size: 12px; color: #666;">${date}</div>
-                            ${transaction.errandId ? `<div style="font-size: 11px; color: #999;">Errand ID: ${transaction.errandId.substring(0, 8)}...</div>` : ''}
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="font-weight: 700; color: var(--dark-green);">KSH ${transaction.amount.toFixed(2)}</div>
-                            <div style="font-size: 12px; color: #666;">${transaction.status}</div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            transactionsHtml += '</div>';
-            if (transactionHistory) transactionHistory.innerHTML = transactionsHtml;
-            
-            // Update totals
-            const totalDepositsElement = document.getElementById('totalDeposits');
-            const totalWithdrawalsElement = document.getElementById('totalWithdrawals');
-            
-            if (totalDepositsElement) totalDepositsElement.textContent = `KSH ${totalDeposits.toFixed(2)}`;
-            if (totalWithdrawalsElement) totalWithdrawalsElement.textContent = `KSH ${totalWithdrawals.toFixed(2)}`;
-        }
-    } catch (error) {
-        console.error('Load wallet data error:', error);
     }
 }
 
@@ -1148,6 +1019,7 @@ async function getTotalSpent() {
     
     let total = 0;
     snapshot.forEach(doc => {
+        // Use finalAmount if available, otherwise use acceptedBid, otherwise use budget
         const errand = doc.data();
         total += errand.finalAmount || errand.acceptedBid || errand.budget || 0;
     });
@@ -1180,15 +1052,17 @@ function createErrandCard(errand, id) {
         statusText = 'AWAITING YOUR APPROVAL';
     } else if (errand.status === 'disputed') {
         statusText = 'DISPUTED - UNDER REVIEW';
-    } else if (errand.status === 'pending_payment') {
-        statusText = 'AWAITING PAYMENT';
+    } else if (errand.status === 'pending') {
+        statusText = 'AWAITING BIDS';
+    } else if (errand.status === 'active') {
+        statusText = 'PAID - AWAITING RUNNER';
     }
     
     // Show the accepted bid amount if available, otherwise show budget
     const displayAmount = errand.acceptedBid || errand.budget || 0;
     
-    // Check if payment is needed
-    const needsPayment = errand.status === 'pending' && errand.acceptedBid && errand.paymentStatus === 'awaiting_payment';
+    // Check if payment is required and not yet completed
+    const showPaymentStatus = errand.status === 'pending' && errand.paymentRequired;
     
     card.innerHTML = `
         <div class="errand-header">
@@ -1235,11 +1109,6 @@ function createErrandCard(errand, id) {
                     <i class="fas fa-gavel"></i> View Bids (${errand.bids?.length || 0})
                 </button>
                 ` : ''}
-                ${needsPayment ? `
-                <button class="btn btn-primary" onclick="processBidPayment('${id}')" style="padding: 5px 15px; font-size: 12px; background-color: var(--lime-green);">
-                    <i class="fas fa-money-bill-wave"></i> Pay Now
-                </button>
-                ` : ''}
                 ${errand.status === 'pending_client_approval' ? `
                 <button class="btn btn-success" onclick="showCompletionApproval('${id}')" style="padding: 5px 15px; font-size: 12px; background-color: var(--lime-green);">
                     <i class="fas fa-check"></i> Review & Complete
@@ -1268,6 +1137,7 @@ function filterErrands(filter) {
 
 function showCompletionApproval(errandId) {
     viewErrandDetails(errandId);
+    // The modal will show and we'll add a special section
     setTimeout(() => {
         const detailsContent = document.getElementById('errandDetailsContent');
         if (detailsContent) {
@@ -1389,16 +1259,10 @@ async function viewErrandDetails(errandId) {
                     <div class="detail-label">Runner Receives:</div>
                     <div class="detail-value">KSH ${runnerReceives.toFixed(2)}</div>
                 </div>
-                ${errand.paymentStatus ? `
+                ${errand.paymentCompleted ? `
                 <div class="detail-row">
                     <div class="detail-label">Payment Status:</div>
-                    <div class="detail-value">${errand.paymentStatus}</div>
-                </div>
-                ` : ''}
-                ${errand.mpesaReceipt ? `
-                <div class="detail-row">
-                    <div class="detail-label">M-PESA Receipt:</div>
-                    <div class="detail-value">${errand.mpesaReceipt}</div>
+                    <div class="detail-value" style="color: var(--lime-green);">✓ Paid</div>
                 </div>
                 ` : ''}
             </div>
@@ -1470,16 +1334,6 @@ async function viewErrandDetails(errandId) {
             <div style="text-align: center; margin-top: 20px;">
                 <button class="btn btn-primary" onclick="viewBids('${errandId}')">
                     <i class="fas fa-gavel"></i> View Bids (${errand.bids?.length || 0})
-                </button>
-            </div>
-            ` : ''}
-            
-            ${errand.status === 'pending' && errand.acceptedBid && errand.paymentStatus === 'awaiting_payment' ? `
-            <div class="errand-details-section" style="background-color: #fff3cd; padding: 20px; border-radius: var(--radius); margin-top: 20px;">
-                <h4 style="margin-bottom: 15px; color: #856404;">Payment Required</h4>
-                <p style="margin-bottom: 20px;">Please complete payment of KSH ${errand.acceptedBid.toFixed(2)} to start the errand.</p>
-                <button class="btn btn-primary" style="width: 100%;" onclick="processBidPayment('${errandId}')">
-                    <i class="fas fa-money-bill-wave"></i> Pay with M-PESA
                 </button>
             </div>
             ` : ''}
@@ -1587,7 +1441,7 @@ async function viewBids(errandId) {
                                 <i class="fas fa-times"></i> Reject
                             </button>
                             <button class="btn btn-primary" onclick="acceptBid('${errandId}', ${index})" style="padding: 5px 15px; font-size: 12px;">
-                                <i class="fas fa-check"></i> Accept
+                                <i class="fas fa-check"></i> Accept & Pay
                             </button>
                         </div>
                     </div>
@@ -1607,69 +1461,20 @@ async function viewBids(errandId) {
     }
 }
 
-// Updated acceptBid function - now sets status to pending_payment
+// NEW FUNCTION: Accept bid and initiate payment
 async function acceptBid(errandId, bidIndex) {
     if (!currentUser || !db) {
-        showToast('Database not available', 'error');
+        showToast('Please login first', 'error');
         return;
     }
     
-    if (!confirm('Accept this bid? The runner will be notified and you will be prompted to make payment.')) {
-        return;
-    }
-    
-    showLoading();
-    try {
-        const errandDoc = await db.collection('errands').doc(errandId).get();
-        const errand = errandDoc.data();
-        const bids = errand.bids || [];
-        
-        if (bidIndex >= bids.length) {
-            showToast('Bid not found', 'error');
-            return;
-        }
-        
-        const bid = bids[bidIndex];
-        const acceptedAmount = bid.amount;
-        
-        // Update errand status to pending_payment
-        await db.collection('errands').doc(errandId).update({
-            status: 'pending', // Keep as pending until payment is made
-            assignedRunnerId: bid.runnerId,
-            assignedRunnerName: bid.runnerName,
-            acceptedBid: acceptedAmount,
-            acceptedBidIndex: bidIndex,
-            paymentStatus: 'awaiting_payment',
-            acceptedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        showToast('Bid accepted! Please complete payment to start the errand.', 'success');
-        closeModal('bidsModal');
-        
-        // Store bid data for payment processing
-        pendingBidAcceptance = {
-            errandId: errandId,
-            amount: acceptedAmount,
-            runnerId: bid.runnerId,
-            runnerName: bid.runnerName
-        };
-        
-        // Show payment modal
-        showPaymentModal(errandId, acceptedAmount);
-        
-        // Refresh errands list
-        loadUserErrands();
-    } catch (error) {
-        console.error('Accept bid error:', error);
-        showToast('Error accepting bid: ' + error.message, 'error');
-    } finally {
-        hideLoading();
-    }
+    // Show payment modal with phone number input
+    showPaymentModal(errandId, bidIndex);
 }
 
-// Show payment modal for bid acceptance
-function showPaymentModal(errandId, amount) {
-    // Create payment modal
+// NEW FUNCTION: Show payment modal
+function showPaymentModal(errandId, bidIndex) {
+    // Create payment modal HTML
     const modalHtml = `
         <div id="paymentModal" class="modal active">
             <div class="modal-content" style="max-width: 500px;">
@@ -1679,183 +1484,152 @@ function showPaymentModal(errandId, amount) {
                 </div>
                 <div class="modal-body">
                     <div style="text-align: center; margin-bottom: 20px;">
-                        <i class="fas fa-money-bill-wave" style="font-size: 64px; color: var(--lime-green);"></i>
+                        <i class="fas fa-lock" style="font-size: 48px; color: var(--lime-green);"></i>
                     </div>
-                    <h3 style="text-align: center; margin-bottom: 15px;">Pay KSH ${amount.toFixed(2)}</h3>
-                    <p style="text-align: center; color: #666; margin-bottom: 20px;">
-                        Enter your M-PESA phone number to complete payment
-                    </p>
+                    <p style="margin-bottom: 20px;">To accept this bid and start the errand, please complete payment via M-Pesa.</p>
                     
                     <div class="form-group">
-                        <label class="form-label">M-PESA Phone Number</label>
-                        <input type="tel" id="mpesaPhone" class="form-control" placeholder="e.g., 254712345678" value="254">
+                        <label class="form-label">M-Pesa Phone Number</label>
+                        <input type="tel" id="paymentPhone" class="form-control" placeholder="0712345678" value="0712345678">
+                        <small style="color: #666;">Enter the M-Pesa registered phone number</small>
                     </div>
                     
-                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: var(--radius); margin-bottom: 20px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                            <span>Bid Amount:</span>
-                            <strong>KSH ${amount.toFixed(2)}</strong>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; font-weight: 600; border-top: 1px solid var(--medium-gray); padding-top: 10px;">
-                            <span>Total to Pay:</span>
-                            <span style="color: var(--dark-green);">KSH ${amount.toFixed(2)}</span>
-                        </div>
-                    </div>
+                    <div id="paymentStatus" style="margin-top: 20px;"></div>
                     
-                    <button class="btn btn-primary" style="width: 100%;" onclick="initiateMpesaPayment('${errandId}')">
-                        <i class="fas fa-lock"></i> Pay with M-PESA
+                    <button id="initiatePaymentBtn" class="btn btn-primary" style="width: 100%; margin-top: 20px;" onclick="initiatePayment('${errandId}', ${bidIndex})">
+                        <i class="fas fa-money-bill-wave"></i> Pay Now
                     </button>
                 </div>
             </div>
         </div>
     `;
     
-    // Remove any existing payment modal
+    // Remove existing payment modal if any
     const existingModal = document.getElementById('paymentModal');
     if (existingModal) {
         existingModal.remove();
     }
     
-    // Add the modal to the body
+    // Add modal to body
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-// Initiate M-PESA payment via Tuma API
-async function initiateMpesaPayment(errandId) {
-    const phoneInput = document.getElementById('mpesaPhone');
-    if (!phoneInput) return;
+// NEW FUNCTION: Initiate payment via Firebase Function
+async function initiatePayment(errandId, bidIndex) {
+    const phoneInput = document.getElementById('paymentPhone');
+    const paymentStatus = document.getElementById('paymentStatus');
+    const initiateBtn = document.getElementById('initiatePaymentBtn');
     
-    let phone = phoneInput.value.trim();
-    
-    // Format phone number (ensure it starts with 254)
-    if (phone.startsWith('0')) {
-        phone = '254' + phone.substring(1);
-    } else if (phone.startsWith('+')) {
-        phone = phone.substring(1);
-    } else if (!phone.startsWith('254')) {
-        phone = '254' + phone;
-    }
-    
-    // Validate phone number (should be 12 digits: 254 + 9 digits)
-    if (!/^254\d{9}$/.test(phone)) {
-        showToast('Please enter a valid M-PESA phone number (e.g., 254712345678)', 'error');
+    if (!phoneInput || !phoneInput.value) {
+        showToast('Please enter your M-Pesa phone number', 'error');
         return;
     }
     
-    showLoading();
+    // Validate phone number (simple validation)
+    const phone = phoneInput.value.trim();
+    if (!phone.match(/^(0|254)[0-9]{9}$/)) {
+        showToast('Please enter a valid Kenyan phone number (e.g., 0712345678)', 'error');
+        return;
+    }
+    
+    // Disable button and show loading
+    initiateBtn.disabled = true;
+    initiateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    
+    if (paymentStatus) {
+        paymentStatus.innerHTML = '<div class="alert alert-info">Initiating payment...</div>';
+    }
     
     try {
-        // Get errand details
-        const errandDoc = await db.collection('errands').doc(errandId).get();
-        const errand = errandDoc.data();
-        const amount = errand.acceptedBid;
-        
-        // Check if we have Tuma token
-        if (!tumaToken) {
-            await getTumaToken();
-            if (!tumaToken) {
-                throw new Error('Could not get payment token. Please try again.');
-            }
-        }
-        
-        // Callback URL - you'll need to set up a webhook endpoint
-        // For testing, you can use a service like webhook.site
-        const callbackUrl = 'https://your-domain.com/payment-callback'; // Replace with your actual callback URL
-        
-        // Initiate STK Push
-        const response = await fetch(`${TUMA_API_BASE}/payment/stk-push`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${tumaToken}`
-            },
-            body: JSON.stringify({
-                amount: amount,
-                phone: phone,
-                callback_url: callbackUrl,
-                description: `Payment for errand: ${errand.errandType}`
-            })
+        // Call Firebase Function
+        const initiatePaymentFunction = firebase.functions().httpsCallable('initiateBidPayment');
+        const result = await initiatePaymentFunction({
+            errandId: errandId,
+            bidIndex: bidIndex,
+            phoneNumber: phone
         });
         
-        const result = await response.json();
-        
-        if (response.ok) {
-            // Update errand with payment info
-            await db.collection('errands').doc(errandId).update({
-                paymentStatus: 'processing',
-                mpesaPhone: phone,
-                paymentInitiatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                tumaTransactionId: result.transaction_id || result.reference
-            });
-            
-            showToast('M-PESA STK push sent! Please check your phone and enter PIN.', 'success');
-            closeModal('paymentModal');
+        if (result.data.success) {
+            // Show STK Push sent message
+            paymentStatus.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i> STK Push sent to your phone.<br>
+                    Please enter your M-Pesa PIN to complete the payment.
+                </div>
+            `;
             
             // Start checking payment status
-            checkPaymentStatus(errandId);
+            startPaymentStatusCheck(result.data.paymentId);
         } else {
-            throw new Error(result.message || 'Payment initiation failed');
+            throw new Error(result.data.message || 'Payment initiation failed');
         }
+        
     } catch (error) {
-        console.error('Payment error:', error);
-        showToast('Payment failed: ' + error.message, 'error');
-    } finally {
-        hideLoading();
+        console.error('Payment initiation error:', error);
+        
+        if (paymentStatus) {
+            paymentStatus.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> ${error.message || 'Failed to initiate payment'}
+                </div>
+            `;
+        }
+        
+        // Re-enable button
+        initiateBtn.disabled = false;
+        initiateBtn.innerHTML = '<i class="fas fa-money-bill-wave"></i> Try Again';
     }
 }
 
-// Check payment status (simplified - in production, you'd use webhooks)
-function checkPaymentStatus(errandId) {
-    // Show checking status
-    const statusHtml = `
-        <div id="paymentStatusModal" class="modal active">
-            <div class="modal-content" style="max-width: 400px;">
-                <div class="modal-body" style="text-align: center; padding: 30px;">
-                    <div class="spinner" style="margin: 20px auto;"></div>
-                    <h3>Processing Payment</h3>
-                    <p style="color: #666; margin-top: 10px;">Please complete payment on your phone. This page will update automatically when payment is confirmed.</p>
-                    <p style="font-size: 12px; color: #999; margin-top: 20px;">Waiting for M-PESA confirmation...</p>
-                </div>
-            </div>
-        </div>
-    `;
+// NEW FUNCTION: Check payment status periodically
+function startPaymentStatusCheck(paymentId) {
+    let checkCount = 0;
+    const maxChecks = 30; // Check for 2.5 minutes (30 * 5 seconds)
     
-    document.body.insertAdjacentHTML('beforeend', statusHtml);
-    
-    // Set up listener for payment confirmation
-    const unsubscribe = db.collection('errands').doc(errandId)
-        .onSnapshot((doc) => {
-            const errand = doc.data();
-            if (errand.paymentStatus === 'paid') {
-                // Close status modal
-                const statusModal = document.getElementById('paymentStatusModal');
-                if (statusModal) statusModal.remove();
+    const checkInterval = setInterval(async () => {
+        checkCount++;
+        
+        try {
+            const checkStatusFunction = firebase.functions().httpsCallable('checkPaymentStatus');
+            const result = await checkStatusFunction({ paymentId: paymentId });
+            
+            if (result.data.status === 'completed') {
+                clearInterval(checkInterval);
                 
                 // Show success message
-                showToast('Payment successful! Errand is now active.', 'success');
+                showToast('Payment successful! Errand has been assigned to runner.', 'success');
                 
-                // Refresh errands
+                // Close payment modal
+                closeModal('paymentModal');
+                
+                // Refresh errands list
                 loadUserErrands();
+                loadDashboardData();
                 
-                // Unsubscribe
-                unsubscribe();
-            } else if (errand.paymentStatus === 'failed') {
-                const statusModal = document.getElementById('paymentStatusModal');
-                if (statusModal) statusModal.remove();
+            } else if (result.data.status === 'failed') {
+                clearInterval(checkInterval);
                 
+                // Show error
                 showToast('Payment failed. Please try again.', 'error');
-                unsubscribe();
+                
+                // Close payment modal
+                closeModal('paymentModal');
             }
-        }, 5000); // Check every 5 seconds
+            
+            // If we've checked too many times, stop checking
+            if (checkCount >= maxChecks) {
+                clearInterval(checkInterval);
+                showToast('Payment status check timed out. Please check your transactions.', 'warning');
+            }
+            
+        } catch (error) {
+            console.error('Status check error:', error);
+            // Don't clear interval on error, continue checking
+        }
+    }, 5000); // Check every 5 seconds
 }
 
-// Process bid payment (called from UI)
-async function processBidPayment(errandId) {
-    const errandDoc = await db.collection('errands').doc(errandId).get();
-    const errand = errandDoc.data();
-    showPaymentModal(errandId, errand.acceptedBid);
-}
-
+// Reject bid function
 async function rejectBid(errandId, bidIndex) {
     if (!currentUser || !db) {
         showToast('Database not available', 'error');
@@ -1892,12 +1666,6 @@ async function rejectBid(errandId, bidIndex) {
     } finally {
         hideLoading();
     }
-}
-
-// Payment Functions (for wallet - kept for compatibility but disabled)
-async function processPayment() {
-    showToast('Wallet payments are no longer supported. Payments are now made per errand when accepting a bid.', 'info');
-    closeModal('addFundsModal');
 }
 
 // Location Functions
@@ -1940,9 +1708,7 @@ function showPage(pageId) {
         pageElement.classList.add('active');
         
         // Load data for specific pages
-        if (pageId === 'wallet') {
-            loadWalletData();
-        } else if (pageId === 'dashboard') {
+        if (pageId === 'dashboard') {
             loadDashboardData();
         } else if (pageId === 'myErrands') {
             loadUserErrands();
@@ -2059,5 +1825,4 @@ window.approveCompletion = approveCompletion;
 window.raiseDispute = raiseDispute;
 window.submitDispute = submitDispute;
 window.showCompletionApproval = showCompletionApproval;
-window.processBidPayment = processBidPayment;
-window.initiateMpesaPayment = initiateMpesaPayment;
+window.initiatePayment = initiatePayment;
